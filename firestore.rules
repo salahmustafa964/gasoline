@@ -18,8 +18,8 @@ service cloud.firestore {
 
     match /{col}/{id} {
       // بيانات أساسية
-      allow read: if isStaff() && col in ['reps','customers','suppliers','expenses'];
-      allow create, update: if isStaff() && col in ['reps','customers','suppliers'];
+      allow read: if isStaff() && col in ['reps','customers','suppliers','expenses','accounts'];
+      allow create, update: if isStaff() && col in ['reps','customers','suppliers','accounts'];
       // حركات مالية ومخزنية: إنشاء داخل فترة مفتوحة، تعديل للمدير فقط، لا حذف
       allow read: if isStaff() && col in ['purchases','saleAllocations','settlements','payments'];
       allow create: if isStaff() && col in ['purchases','saleAllocations','settlements','payments','expenses']

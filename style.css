@@ -47,3 +47,8 @@ input{width:100%;padding:.8rem;border:1.5px solid var(--line);border-radius:.4re
 .tag{display:inline-block;padding:.05rem .6rem;border-radius:1rem;background:#f6e7c4;font-size:.85rem}
 .tag.done{background:#dfe6ea;color:var(--muted)}
 h2{margin:0 0 .5rem}
+.line{border:1px solid var(--line);border-radius:.4rem;padding:.8rem;margin-top:1rem;align-items:end}
+.line .btn.ghost{color:var(--red);border-color:var(--red)}
+.line .lv{font-weight:700;padding-bottom:.6rem}
+.btn.alt{background:var(--amber);color:#1a1200;margin-top:1rem}
+select{width:100%;padding:.8rem;border:1.5px solid var(--line);border-radius:.4rem;background:#fff}

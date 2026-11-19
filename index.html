@@ -20,6 +20,7 @@ const PAGES=[
  ["dashboard","الرئيسية",["admin","accountant"]],
  ["sales","المبيعات",["admin","accountant","rep"]],
  ["reps","المناديب",["admin","accountant"]],
+ ["accounts","حسابات الاستلام",["admin","accountant"]],
  ["inventory","المخزون",["admin","accountant"]],
  ["purchases","المشتريات والتكاليف",["admin","accountant"]],
  ["settlement","التسوية",["admin","accountant"]],
@@ -35,7 +36,7 @@ onAuthStateChanged(auth,async u=>{
  if(!s.exists()){view.innerHTML='<div class="panel">حسابك غير مفعّل بعد. اطلب من المدير إضافتك للنظام.</div>';return}
  const d=s.data();who.textContent=d.name+" ("+ROLE[d.role]+")";
  const allowed=PAGES.filter(p=>p[2].includes(d.role));
- const BUILT=["purchases","reps","sales"];
+ const BUILT=["purchases","reps","sales","accounts"];
  const go=async()=>{const k=location.hash.slice(1)||allowed[0][0];
   nav.innerHTML=allowed.map(p=>`<a href="#${p[0]}" class="${p[0]===k?"on":""}">${p[1]}</a>`).join("");
   const p=allowed.find(x=>x[0]===k)||allowed[0];
