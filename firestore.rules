@@ -1,0 +1,39 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn(){ return request.auth != null; }
+    function me(){ return get(/databases/$(database)/documents/users/$(request.auth.uid)).data; }
+    function role(){ return signedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid)) ? me().role : ''; }
+    function isAdmin(){ return role() == 'admin'; }
+    function isStaff(){ return role() in ['admin','accountant']; }
+    // الفترة المقفلة ترفض أي كتابة (periodId مثل 2026-11)
+    function periodOpen(pid){
+      return !exists(/databases/$(database)/documents/periods/$(pid))
+        || get(/databases/$(database)/documents/periods/$(pid)).data.closed != true;
+    }
+
+    match /users/{id}{ allow read: if signedIn() && (request.auth.uid == id || isAdmin()); allow write: if isAdmin(); }
+    match /settings/{id}{ allow read: if signedIn(); allow write: if isAdmin(); }
+    match /periods/{id}{ allow read: if isStaff(); allow write: if isAdmin(); }
+
+    match /{col}/{id} {
+      // بيانات أساسية
+      allow read: if isStaff() && col in ['reps','customers','suppliers','expenses'];
+      allow create, update: if isStaff() && col in ['reps','customers','suppliers'];
+      // حركات مالية ومخزنية: إنشاء داخل فترة مفتوحة، تعديل للمدير فقط، لا حذف
+      allow read: if isStaff() && col in ['purchases','saleAllocations','settlements','payments'];
+      allow create: if isStaff() && col in ['purchases','saleAllocations','settlements','payments','expenses']
+                    && periodOpen(request.resource.data.periodId);
+      allow update: if isAdmin() && col in ['purchases','settlements']
+                    && periodOpen(resource.data.periodId);
+      // المبيعات: المندوب يقرأ مبيعاته فقط
+      allow read: if col == 'sales' && (isStaff() || (role()=='rep' && resource.data.repId == me().repId));
+      allow create: if col == 'sales' && isStaff() && periodOpen(request.resource.data.periodId);
+      allow update: if col == 'sales' && isAdmin() && periodOpen(resource.data.periodId);
+      // سجلات لا تُعدَّل ولا تُحذف
+      allow read: if isStaff() && col in ['ledger','stockMovements','auditLog'];
+      allow create: if isStaff() && col in ['ledger','stockMovements','auditLog'];
+      allow delete: if false;
+    }
+  }
+}

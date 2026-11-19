@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>الرئيسية</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css"></head>
+<body><div class="shell">
+<aside class="side"><h2 id="app"></h2><nav id="nav"></nav></aside>
+<main class="main">
+ <div class="top"><div class="date" id="today"></div><div><span class="who" id="who"></span> <button class="btn ghost" id="out">خروج</button></div></div>
+ <section id="view"></section>
+</main></div>
+<script type="module">
+import {initializeApp} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import {getAuth,onAuthStateChanged,signOut} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import {getFirestore,doc,getDoc} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import {firebaseConfig,APP_NAME} from "./firebase-config.js";
+const app=initializeApp(firebaseConfig),auth=getAuth(app),db=getFirestore(app);
+const PAGES=[
+ ["dashboard","الرئيسية",["admin","accountant"]],
+ ["sales","المبيعات",["admin","accountant","rep"]],
+ ["reps","المناديب",["admin","accountant"]],
+ ["inventory","المخزون",["admin","accountant"]],
+ ["purchases","المشتريات والتكاليف",["admin","accountant"]],
+ ["settlement","التسوية",["admin","accountant"]],
+ ["reports","التقارير والأرباح",["admin","accountant","rep"]],
+ ["audit","سجل العمليات",["admin"]]];
+const ROLE={admin:"مدير",accountant:"محاسب",rep:"مندوب"};
+document.getElementById("app").textContent=APP_NAME;
+document.getElementById("today").textContent=new Date().toLocaleDateString("ar-SD",{weekday:"long",year:"numeric",month:"long",day:"numeric"});
+out.onclick=()=>signOut(auth);
+onAuthStateChanged(auth,async u=>{
+ if(!u){location.href="login.html";return}
+ const s=await getDoc(doc(db,"users",u.uid));
+ if(!s.exists()){view.innerHTML='<div class="panel">حسابك غير مفعّل بعد. اطلب من المدير إضافتك للنظام.</div>';return}
+ const d=s.data();who.textContent=d.name+" ("+ROLE[d.role]+")";
+ const allowed=PAGES.filter(p=>p[2].includes(d.role));
+ const go=()=>{const k=location.hash.slice(1)||allowed[0][0];
+  nav.innerHTML=allowed.map(p=>`<a href="#${p[0]}" class="${p[0]===k?"on":""}">${p[1]}</a>`).join("");
+  const p=allowed.find(x=>x[0]===k)||allowed[0];
+  view.innerHTML=p[0]==="dashboard"?
+  `<div class="grid"><div class="stat fuel"><b>— لتر</b><span>المخزون الحالي</span></div>
+   <div class="stat"><b>—</b><span>مبيعات اليوم</span></div>
+   <div class="stat bad"><b>—</b><span>مديونيات المناديب</span></div>
+   <div class="stat good"><b>—</b><span>ربح الشهر</span></div></div>
+   <div class="panel soon">الأرقام تظهر بعد بناء صفحات المشتريات والمبيعات.</div>`:
+  `<div class="panel"><h2>${p[1]}</h2><p class="soon">هذه الصفحة تُبنى في الخطوات القادمة.</p></div>`};
+ addEventListener("hashchange",go);go();
+});
+</script></body></html>
