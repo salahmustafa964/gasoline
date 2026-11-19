@@ -35,6 +35,7 @@ service cloud.firestore {
       // سجلات لا تُعدَّل ولا تُحذف
       allow read: if isStaff() && col in ['ledger','stockMovements','auditLog'];
       allow create: if isStaff() && col in ['ledger','stockMovements','auditLog'];
+      allow delete: if isAdmin() && col == 'reps';
       allow delete: if false;
     }
   }

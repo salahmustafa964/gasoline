@@ -52,3 +52,8 @@ h2{margin:0 0 .5rem}
 .line .lv{font-weight:700;padding-bottom:.6rem}
 .btn.alt{background:var(--amber);color:#1a1200;margin-top:1rem}
 select{width:100%;padding:.8rem;border:1.5px solid var(--line);border-radius:.4rem;background:#fff}
+.acc{margin-top:1.8rem}
+.acc h3{margin:0 0 .4rem}
+.btn.sm{padding:.3rem .8rem;font-size:.9rem;margin-left:.4rem}
+.btn.danger{background:var(--red)}
+.tr-total td{font-weight:700;background:var(--paper)}
