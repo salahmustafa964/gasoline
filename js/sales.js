@@ -16,7 +16,7 @@ export async function render(view,{db,user}){
  let bal=0,accs=[];
  const q=(el,c)=>el.querySelector("."+c);
  const read=()=>[...view.querySelectorAll(".line")].map(el=>{const L=n(q(el,"li").value),P=n(q(el,"pr").value),paid=n(q(el,"pd").value),a=q(el,"ac");
-  return {el,entity:q(el,"en").value.trim(),L,P,paid,amount:L*P,accId:a.value,accName:a.selectedOptions[0]?.text||""}});
+  return {el,entity:q(el,"en").value.trim(),L,P,paid,amount:L*P,accId:a.value,accName:a.value?a.selectedOptions[0].text:"",method:q(el,"pm").value,note:q(el,"nt").value.trim()}});
  const upd=()=>{if(!canWrite)return;let tot=0,pd=0;
   read().forEach(l=>{tot+=l.amount;pd+=l.paid;q(l.el,"lv").textContent=`القيمة ${f(l.amount,2)} | المتبقي ${f(l.amount-l.paid,2)}`});
   $("pv").innerHTML=`إجمالي الفاتورة: ${f(tot,2)} | المسدّد: ${f(pd,2)} | المتبقي: ${f(tot-pd,2)}<br>رصيد المندوب بعد الفاتورة: ${f(bal+tot-pd,2)}`};
@@ -25,7 +25,9 @@ export async function render(view,{db,user}){
   <div><label>اللترات</label><input class="li" type="number" step="any" min="0"></div>
   <div><label>سعر البيع للتر</label><input class="pr" type="number" step="any" min="0"></div>
   <div><label>السداد الفعلي</label><input class="pd" type="number" step="any" min="0" value="0"></div>
-  <div><label>تم الدفع في حساب</label><select class="ac"><option value="">— لا سداد —</option>${accs.map(a=>`<option value="${a.id}">${esc(a.name)}</option>`).join("")}</select></div>
+  <div><label>تم الدفع في حساب (اختياري)</label><select class="ac"><option value="">— غير محدد —</option>${accs.map(a=>`<option value="${a.id}">${esc(a.name)}</option>`).join("")}</select></div>
+  <div><label>طريقة السداد (اختياري)</label><select class="pm"><option value="">—</option><option>كاش</option><option>بنكك</option><option>تحويل آخر</option></select></div>
+  <div><label>ملحوظة السداد (اختياري)</label><input class="nt"></div>
   <div class="lv"></div><button type="button" class="btn ghost rm">حذف الحمولة</button>`;
   d.addEventListener("input",upd);q(d,"rm").onclick=()=>{if(view.querySelectorAll(".line").length>1){d.remove();upd()}};
   $("lines").appendChild(d);upd()};
@@ -33,10 +35,12 @@ export async function render(view,{db,user}){
   const s=await getDocs(query(collection(db,"ledger"),where("repId","==",$("rep").value)));
   bal=0;s.forEach(d=>bal+=n(d.data().amount));upd()}
  async function load(){
-  const s=await getDocs(query(collection(db,"sales"),orderBy("date","desc"),limit(60)));
+  const [s,ls]=await Promise.all([getDocs(query(collection(db,"sales"),orderBy("date","desc"),limit(60))),canWrite?getDocs(query(collection(db,"ledger"),limit(5000))):Promise.resolve(null)]);
   if(s.empty){$("list").innerHTML='<p class="soon">لا توجد مبيعات بعد.</p>';return}
-  $("list").innerHTML=`<table class="tbl"><thead><tr><th>التاريخ</th><th>المندوب</th><th>الجهة</th><th>اللترات</th><th>السعر</th><th>القيمة</th><th>المسدّد</th><th>حساب الاستلام</th><th>المتبقي</th>${canWrite?"<th>الربح (قبل الترحيل والرسوم)</th>":""}</tr></thead><tbody>`+
-  s.docs.map(d=>{const x=d.data();return `<tr><td>${esc(x.date)}</td><td>${esc(x.repName)}</td><td>${esc(x.entity)}</td><td class="num">${f(x.liters)}</td><td class="num">${f(x.pricePerLiter,2)}</td><td class="num">${f(x.amount,2)}</td><td class="num">${f(x.paid,2)}</td><td>${esc(x.paidAccountName)}</td><td class="num">${f(n(x.amount)-n(x.paid),2)}</td>${canWrite?`<td class="num">${f(n(x.amount)-n(x.costTotal),2)}</td>`:""}</tr>`}).join("")+"</tbody></table>"}
+  const pay={};if(ls)ls.forEach(d=>{const x=d.data();if(x.type==="payment"&&x.ref){const p=pay[x.ref]||(pay[x.ref]={sum:0,tags:new Set()});p.sum-=n(x.amount);const t=[x.accountName,x.method].filter(Boolean).join(" - ");if(t)p.tags.add(t)}});
+  $("list").innerHTML=`<table class="tbl"><thead><tr><th>التاريخ</th><th>المندوب</th><th>الجهة</th><th>اللترات</th><th>السعر</th><th>القيمة</th><th>المسدّد</th><th>الحساب / الطريقة</th><th>المتبقي</th>${canWrite?"<th>الربح (قبل الترحيل والرسوم)</th>":""}</tr></thead><tbody>`+
+  s.docs.map(d=>{const x=d.data(),p=pay[d.id],paid=p?p.sum:n(x.paid),tags=p?[...p.tags].map(esc).join("، "):esc(x.paidAccountName);
+   return `<tr><td>${esc(x.date)}</td><td>${esc(x.repName)}</td><td>${esc(x.entity)}</td><td class="num">${f(x.liters)}</td><td class="num">${f(x.pricePerLiter,2)}</td><td class="num">${f(x.amount,2)}</td><td class="num">${f(paid,2)}</td><td>${tags}</td><td class="num">${f(n(x.amount)-paid,2)}</td>${canWrite?`<td class="num">${f(n(x.amount)-n(x.costTotal),2)}</td>`:""}</tr>`}).join("")+"</tbody></table>"}
  if(canWrite){
   const [rs,as]=await Promise.all([getDocs(collection(db,"reps")),getDocs(collection(db,"accounts"))]);
   const reps=rs.docs.map(d=>({id:d.id,...d.data()})).filter(r=>r.active!==false);
@@ -50,7 +54,7 @@ export async function render(view,{db,user}){
     for(const l of lines){
      if(!(l.L>0)||!(l.P>0)){$("er").textContent="في كل حمولة: أدخل كمية وسعرًا أكبر من صفر.";return}
      if(l.paid>l.amount){$("er").textContent="سداد إحدى الحمولات أكبر من قيمتها. سجّل الزيادة كسداد من صفحة المناديب.";return}
-     if(l.paid>0&&!l.accId){$("er").textContent="اختر الحساب الذي دُفع فيه المبلغ لكل حمولة فيها سداد.";return}}
+     }
     try{
      const ps=await getDocs(query(collection(db,"purchases"),where("remainingLiters",">",0)));
      const cand=ps.docs.filter(d=>d.data().date<=date).sort((a,b)=>a.data().date.localeCompare(b.data().date)||(a.data().createdAt?.seconds||0)-(b.data().createdAt?.seconds||0));
@@ -69,7 +73,7 @@ export async function render(view,{db,user}){
        for(const a of al)tx.set(doc(collection(db,"saleAllocations")),{...base,saleId:sr.id,batchId:a.id,liters:a.t,unitCost:a.uc});
        tx.set(doc(collection(db,"stockMovements")),{...base,type:"sale",liters:-l.L,ref:sr.id});
        tx.set(doc(collection(db,"ledger")),{...base,accountType:"rep",repId,type:"sale",amount:l.amount,ref:sr.id,entity:l.entity});
-       if(l.paid>0)tx.set(doc(collection(db,"ledger")),{...base,accountType:"rep",repId,type:"payment",amount:-l.paid,accountId:l.accId,accountName:l.accName,ref:sr.id})});
+       if(l.paid>0)tx.set(doc(collection(db,"ledger")),{...base,accountType:"rep",repId,type:"payment",amount:-l.paid,repName,entity:l.entity,accountId:l.accId,accountName:l.accName,method:l.method,note:l.note,ref:sr.id})});
       tx.set(doc(collection(db,"auditLog")),{userId:user.uid,userName:user.name,action:"إضافة فاتورة بيع",collection:"sales",docId:invoiceId,after:{repId,repName,date,lines:res},createdAt:serverTimestamp()});
      });
      const tot=res.reduce((a,r)=>a+r.amount,0),cost=res.reduce((a,r)=>a+r.costTotal,0);
