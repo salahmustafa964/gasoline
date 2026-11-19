@@ -24,6 +24,8 @@ service cloud.firestore {
       allow read: if isStaff() && col in ['purchases','saleAllocations','settlements','payments'];
       allow create: if isStaff() && col in ['purchases','saleAllocations','settlements','payments','expenses']
                     && periodOpen(request.resource.data.periodId);
+      allow update: if isStaff() && col == 'purchases'
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['remainingLiters','finishedDate']);
       allow update: if isAdmin() && col in ['purchases','settlements']
                     && periodOpen(resource.data.periodId);
       // المبيعات: المندوب يقرأ مبيعاته فقط
