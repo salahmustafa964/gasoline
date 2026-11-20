@@ -35,11 +35,11 @@ export async function render(view,{db,user}){
   const s=await getDocs(query(collection(db,"ledger"),where("repId","==",$("rep").value)));
   bal=0;s.forEach(d=>bal+=n(d.data().amount));upd()}
  async function load(){
-  const [s,ls]=await Promise.all([getDocs(query(collection(db,"sales"),orderBy("date","desc"),limit(60))),canWrite?getDocs(query(collection(db,"ledger"),limit(5000))):Promise.resolve(null)]);
+  const [s,ls]=await Promise.all([getDocs(canWrite?query(collection(db,"sales"),orderBy("date","desc"),limit(60)):query(collection(db,"sales"),where("repId","==",user.repId||"-"),limit(200))),canWrite?getDocs(query(collection(db,"ledger"),limit(5000))):Promise.resolve(null)]);
   if(s.empty){$("list").innerHTML='<p class="soon">لا توجد مبيعات بعد.</p>';return}
   const pay={};if(ls)ls.forEach(d=>{const x=d.data();if(x.type==="payment"&&x.ref){const p=pay[x.ref]||(pay[x.ref]={sum:0,tags:new Set()});p.sum-=n(x.amount);const t=[x.accountName,x.method].filter(Boolean).join(" - ");if(t)p.tags.add(t)}});
   $("list").innerHTML=`<table class="tbl"><thead><tr><th>التاريخ</th><th>المندوب</th><th>الجهة</th><th>اللترات</th><th>السعر</th><th>القيمة</th><th>المسدّد</th><th>الحساب / الطريقة</th><th>المتبقي</th>${canWrite?"<th>الربح (قبل الترحيل والرسوم)</th>":""}</tr></thead><tbody>`+
-  s.docs.map(d=>{const x=d.data(),p=pay[d.id],paid=p?p.sum:n(x.paid),tags=p?[...p.tags].map(esc).join("، "):esc(x.paidAccountName);
+  [...s.docs].sort((a,b)=>String(b.data().date).localeCompare(String(a.data().date))).slice(0,60).map(d=>{const x=d.data(),p=pay[d.id],paid=p?p.sum:n(x.paid),tags=p?[...p.tags].map(esc).join("، "):esc(x.paidAccountName);
    return `<tr><td>${esc(x.date)}</td><td>${esc(x.repName)}</td><td>${esc(x.entity)}</td><td class="num">${f(x.liters)}</td><td class="num">${f(x.pricePerLiter,2)}</td><td class="num">${f(x.amount,2)}</td><td class="num">${f(paid,2)}</td><td>${tags}</td><td class="num">${f(n(x.amount)-paid,2)}</td>${canWrite?`<td class="num">${f(n(x.amount)-n(x.costTotal),2)}</td>`:""}</tr>`}).join("")+"</tbody></table>"}
  if(canWrite){
   const [rs,as]=await Promise.all([getDocs(collection(db,"reps")),getDocs(collection(db,"accounts"))]);

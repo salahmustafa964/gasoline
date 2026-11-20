@@ -36,11 +36,11 @@ onAuthStateChanged(auth,async u=>{
  if(!s.exists()){view.innerHTML='<div class="panel">حسابك غير مفعّل بعد. اطلب من المدير إضافتك للنظام.</div>';return}
  const d=s.data();who.textContent=d.name+" ("+ROLE[d.role]+")";
  const allowed=PAGES.filter(p=>p[2].includes(d.role));
- const BUILT=["purchases","reps","sales","accounts"];
+ const BUILT=["dashboard","purchases","reps","sales","accounts","inventory","settlement","reports","audit"];
  const go=async()=>{const k=location.hash.slice(1)||allowed[0][0];
   nav.innerHTML=allowed.map(p=>`<a href="#${p[0]}" class="${p[0]===k?"on":""}">${p[1]}</a>`).join("");
   const p=allowed.find(x=>x[0]===k)||allowed[0];
-  if(BUILT.includes(p[0])){view.innerHTML="";const m=await import(`./js/${p[0]}.js`);await m.render(view,{db,auth,user:{uid:u.uid,name:d.name,role:d.role}});return}
+  if(BUILT.includes(p[0])){view.innerHTML="";const m=await import(`./js/${p[0]}.js`);await m.render(view,{db,auth,user:{uid:u.uid,name:d.name,role:d.role,repId:d.repId||""}});return}
   view.innerHTML=p[0]==="dashboard"?
   `<div class="grid"><div class="stat fuel"><b>— لتر</b><span>المخزون الحالي</span></div>
    <div class="stat"><b>—</b><span>مبيعات اليوم</span></div>
