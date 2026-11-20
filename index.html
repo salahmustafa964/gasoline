@@ -24,6 +24,7 @@ const PAGES=[
  ["inventory","المخزون",["admin","accountant"]],
  ["purchases","المشتريات والتكاليف",["admin","accountant"]],
  ["settlement","التسوية",["admin","accountant"]],
+ ["expenses","المصروفات الإضافية",["admin","accountant"]],
  ["reports","التقارير والأرباح",["admin","accountant","rep"]],
  ["audit","سجل العمليات",["admin"]]];
 const ROLE={admin:"مدير",accountant:"محاسب",rep:"مندوب"};
@@ -36,7 +37,7 @@ onAuthStateChanged(auth,async u=>{
  if(!s.exists()){view.innerHTML='<div class="panel">حسابك غير مفعّل بعد. اطلب من المدير إضافتك للنظام.</div>';return}
  const d=s.data();who.textContent=d.name+" ("+ROLE[d.role]+")";
  const allowed=PAGES.filter(p=>p[2].includes(d.role));
- const BUILT=["dashboard","purchases","reps","sales","accounts","inventory","settlement","reports","audit"];
+ const BUILT=["dashboard","purchases","reps","sales","accounts","inventory","settlement","expenses","reports","audit"];
  BUILT.forEach(k=>{if(allowed.some(p=>p[0]===k))import(`./js/${k}.js`).catch(()=>{})});
  const go=async()=>{const k=location.hash.slice(1)||allowed[0][0];
   nav.innerHTML=allowed.map(p=>`<a href="#${p[0]}" class="${p[0]===k?"on":""}">${p[1]}</a>`).join("");

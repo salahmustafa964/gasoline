@@ -13,5 +13,5 @@ export async function render(view,{db}){
   <div class="stat bad"><b>${f(debt,2)}</b><span>مديونيات المناديب</span></div>
   <div class="stat good"><b>${f(p.net,2)}</b><span>صافي ربح الشهر</span></div></div>
   ${drafts?`<div class="panel"><b>تنبيه:</b> يوجد ${drafts} تسوية بانتظار الاعتماد.</div>`:""}
-  <div class="panel soon">صافي الربح = الربح الإجمالي − ترحيل ورسوم الشحنات المنتهية − العجز على الشركة + زيادة الجرد. تكاليف شحنات لم تنتهِ بعد (${f(p.pending,2)}) لم تُخصم.</div>`;
+  <div class="panel soon">صافي الربح = الربح الإجمالي − ترحيل ورسوم الشحنات المنتهية − العجز على الشركة + زيادة الجرد − المصروفات الإضافية. تكاليف شحنات لم تنتهِ بعد (${f(p.pending,2)}) لم تُخصم.</div>`;
 }

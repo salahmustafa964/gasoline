@@ -1,10 +1,10 @@
 import {collection,getDocs,query,limit} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import {n} from "./util.js";
 export async function loadAll(db){
- const names=["sales","purchases","settlements","saleAllocations","ledger"];
+ const names=["sales","purchases","settlements","saleAllocations","ledger","expenses"];
  const r=await Promise.all(names.map(c=>getDocs(query(collection(db,c),limit(5000)))));
  const m=r.map(s=>s.docs.map(d=>({id:d.id,...d.data()})));
- return {sales:m[0],purchases:m[1],settlements:m[2],allocs:m[3],ledger:m[4]};
+ return {sales:m[0],purchases:m[1],settlements:m[2],allocs:m[3],ledger:m[4],expenses:m[5]};
 }
 export function batchStats(D){
  const sm={};D.sales.forEach(s=>sm[s.id]=s);
@@ -26,6 +26,7 @@ export function periodProfit(D,from,to){
  const q=D.settlements.filter(s=>s.status==="approved"&&s.type==="quantity"&&inR(s.date));
  const shortage=q.filter(s=>s.diff<0&&!s.chargeRepId).reduce((a,s)=>a+n(s.value),0);
  const surplus=q.filter(s=>s.diff>0).reduce((a,s)=>a+n(s.value),0);
+ const expenses=(D.expenses||[]).filter(e=>!e.voided&&inR(e.date)).reduce((a,e)=>a+n(e.amount),0);
  const gross=revenue-cost;
- return {revenue,cost,gross,liters,extras,pending,shortage,surplus,net:gross-extras-shortage+surplus};
+ return {revenue,cost,gross,liters,extras,pending,shortage,surplus,expenses,net:gross-extras-shortage+surplus-expenses};
 }

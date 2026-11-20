@@ -26,7 +26,7 @@ export async function render(view,ctx){
  const draw=()=>{
   const fr=$("fr").value,to=$("to").value,inR=d=>d>=fr&&d<=to,p=periodProfit(D,fr,to),row=(l,v,c="")=>`<tr class="${c}"><td>${l}</td><td class="num">${f(v,2)}</td></tr>`;
   const stat=`<div class="panel"><h2>قائمة الأرباح</h2>`+tbl(["البند","المبلغ"],[row("قيمة المبيعات",p.revenue),row("تكلفة المبيعات (سعر الشراء)",-p.cost),row("الربح الإجمالي",p.gross,"tr-total"),
-   row("ترحيل ورسوم وتكاليف الشحنات المنتهية في الفترة",-p.extras),row("عجز جرد على الشركة",-p.shortage),row("زيادة جرد",p.surplus),row("صافي الربح",p.net,"tr-total")])+
+   row("ترحيل ورسوم وتكاليف الشحنات المنتهية في الفترة",-p.extras),row("عجز جرد على الشركة",-p.shortage),row("زيادة جرد",p.surplus),row("مصروفات إضافية (عامة)",-p.expenses),row("صافي الربح",p.net,"tr-total")])+
    `<p class="soon">تكاليف شحنات لم تنتهِ بعد وتُخصم عند انتهائها: ${f(p.pending,2)}. عجز الجرد المحمّل على مندوب لا يُعد خسارة لأنه مسجّل على حسابه.</p></div>`;
   const st=batchStats(D).filter(x=>x.b.date<=to).sort((x,y)=>String(y.b.date).localeCompare(String(x.b.date)));
   const ship=`<div class="panel"><h2>أرباح الشحنات</h2>`+tbl(["التاريخ","المورد","اللترات","المباع","المتبقي","إيراد المبيعات","تكلفة الشراء","الربح الإجمالي","ترحيل ورسوم","الصافي","الحالة"],

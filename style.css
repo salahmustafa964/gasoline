@@ -57,3 +57,19 @@ select{width:100%;padding:.8rem;border:1.5px solid var(--line);border-radius:.4r
 .btn.sm{padding:.3rem .8rem;font-size:.9rem;margin-left:.4rem}
 .btn.danger{background:var(--red)}
 .tr-total td{font-weight:700;background:var(--paper)}
+.page-head{display:flex;justify-content:space-between;align-items:center;gap:1rem;margin-bottom:1rem;flex-wrap:wrap}
+.page-head h2{margin:0;font-size:1.6rem}
+.page-head .btn.alt{margin-top:0;font-size:1.05rem;padding:.8rem 1.6rem}
+.bars{margin-top:.6rem}
+.bar{display:grid;grid-template-columns:9rem 1fr 7rem;gap:.8rem;align-items:center;padding:.35rem 0}
+.bar .track{background:var(--paper);height:1.1rem;border-radius:.2rem;overflow:hidden}
+.bar .fill{height:100%;background:var(--amber);border-radius:.2rem}
+.bar .v{text-align:left;font-variant-numeric:tabular-nums;font-weight:700}
+.void td{text-decoration:line-through;color:var(--muted)}
+dialog{border:0;border-radius:.6rem;padding:0;width:min(34rem,92vw);color:var(--ink)}
+dialog::backdrop{background:#12303bb3}
+dialog form{padding:1.6rem}
+dialog h3{margin:0 0 .4rem;font-size:1.4rem}
+.dlg-actions{display:flex;gap:.8rem;margin-top:1.4rem}
+.dlg-actions .btn.ghost{color:var(--ink);border-color:var(--line)}
+@media(max-width:760px){.bar{grid-template-columns:6rem 1fr 5.5rem}}
