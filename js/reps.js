@@ -22,26 +22,26 @@ export async function render(view,{db,user}){
  const fail=e=>{$("er").textContent=/permission/i.test(e.message)?"تعذّر الحفظ: ليست لديك صلاحية.":"تعذّر الحفظ: "+e.message};
  const r2=x=>Math.round(x*100)/100;
  let open=[];
- async function loadOpen(){
+ let cache={s:[],l:[]};
+ function loadOpen(){
   const rid=$("ps").value;open=[];
-  if(rid){
-   const [ss,ls]=await Promise.all([getDocs(query(collection(db,"sales"),where("repId","==",rid))),getDocs(query(collection(db,"ledger"),where("repId","==",rid)))]);
-   const paid={};ls.forEach(d=>{const x=d.data();if(x.type==="payment"&&x.ref)paid[x.ref]=(paid[x.ref]||0)-n(x.amount)});
-   open=ss.docs.map(d=>({id:d.id,...d.data()})).map(s=>({...s,rem:r2(n(s.amount)-n(paid[s.id]))})).filter(s=>s.rem>0.005)
-    .sort((a,b)=>a.date.localeCompare(b.date)||(a.lineNo||0)-(b.lineNo||0));}
-  $("pl").innerHTML='<option value="">سداد عام (يُوزَّع على الأقدم أولًا)</option>'+open.map(s=>`<option value="${s.id}">${esc(s.date)} - ${esc(s.entity||"بدون جهة")} - ${f(s.liters)} لتر - المتبقي ${f(s.rem,2)}</option>`).join("");
+  if(rid){const paid={};cache.l.forEach(x=>{if(x.repId===rid&&x.type==="payment"&&x.ref)paid[x.ref]=(paid[x.ref]||0)-n(x.amount)});
+   open=cache.s.filter(x=>x.repId===rid).map(x=>({...x,rem:r2(n(x.amount)-n(paid[x.id]))})).filter(x=>x.rem>0.005)
+    .sort((x,y)=>String(x.date).localeCompare(String(y.date))||(x.lineNo||0)-(y.lineNo||0));}
+  $("pl").innerHTML='<option value="">سداد عام (يُوزَّع على الأقدم أولًا)</option>'+open.map(x=>`<option value="${x.id}">${esc(x.date)} - ${esc(x.entity||"بدون جهة")} - ${f(x.liters)} لتر - المتبقي ${f(x.rem,2)}</option>`).join("");
  }
  async function load(){
-  const [rs,ls,as]=await Promise.all([getDocs(collection(db,"reps")),getDocs(query(collection(db,"ledger"),limit(5000))),getDocs(collection(db,"accounts"))]);
+  const [rs,ls,as,ss]=await Promise.all([getDocs(collection(db,"reps")),getDocs(query(collection(db,"ledger"),limit(5000))),getDocs(collection(db,"accounts")),getDocs(query(collection(db,"sales"),limit(5000)))]);
+  cache={s:ss.docs.map(d=>({id:d.id,...d.data()})),l:ls.docs.map(d=>d.data())};
   $("pc").innerHTML='<option value="">— غير محدد —</option>'+as.docs.filter(d=>d.data().active!==false).map(d=>`<option value="${d.id}">${esc(d.data().name)}</option>`).join("");
   const t={},sold={},paid={};
   ls.forEach(d=>{const x=d.data();if(!x.repId)return;t[x.repId]=(t[x.repId]||0)+n(x.amount);
    if(x.type==="sale")sold[x.repId]=(sold[x.repId]||0)+n(x.amount);else paid[x.repId]=(paid[x.repId]||0)-n(x.amount)});
-  const reps=rs.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>a.name.localeCompare(b.name,"ar"));
+  const reps=rs.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>String(a.name||"").localeCompare(String(b.name||""),"ar"));
   const cur=$("ps").value;
   $("ps").innerHTML=reps.map(r=>`<option value="${r.id}">${esc(r.name)}${r.active===false?" (موقوف)":""}</option>`).join("");
   if(cur)$("ps").value=cur;
-  await loadOpen();
+  loadOpen();
   if(!reps.length){$("list").innerHTML='<p class="soon">لا يوجد مناديب بعد.</p>';return}
   let all=0;
   $("list").innerHTML=`<table class="tbl"><thead><tr><th>المندوب</th><th>الهاتف</th><th>إجمالي المسحوب</th><th>المسدّد</th><th>المتبقي عليه</th><th></th></tr></thead><tbody>`+

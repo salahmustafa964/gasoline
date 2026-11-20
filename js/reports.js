@@ -21,7 +21,8 @@ export async function render(view,ctx){
  const {db,user}=ctx,[a,b]=rng();
  view.innerHTML=dates(a,b)+'<div id="out">جارٍ التحميل...</div>';
  const $=id=>view.querySelector("#"+id);
- let D=await loadAll(db);
+ const [D0,pp]=await Promise.all([loadAll(db),user.role==="admin"?getDocs(collection(db,"periods")):null]);
+ let D=D0,pp0=pp;
  const draw=()=>{
   const fr=$("fr").value,to=$("to").value,inR=d=>d>=fr&&d<=to,p=periodProfit(D,fr,to),row=(l,v,c="")=>`<tr class="${c}"><td>${l}</td><td class="num">${f(v,2)}</td></tr>`;
   const stat=`<div class="panel"><h2>قائمة الأرباح</h2>`+tbl(["البند","المبلغ"],[row("قيمة المبيعات",p.revenue),row("تكلفة المبيعات (سعر الشراء)",-p.cost),row("الربح الإجمالي",p.gross,"tr-total"),
@@ -40,10 +41,10 @@ export async function render(view,ctx){
    pu.map(x=>`<tr><td>${esc(x.date)}</td><td>${esc(x.supplierName)}</td><td class="num">${f(x.liters,2)}</td><td class="num">${f(x.pricePerLiter,2)}</td><td class="num">${f(n(x.liters)*n(x.pricePerLiter),2)}</td><td class="num">${f(x.transport,2)}</td><td class="num">${f(x.stateFee,2)}</td><td class="num">${f(x.otherCost,2)}</td></tr>`),
    `<tr class="tr-total"><td colspan="4">إجمالي قيمة الشراء</td><td class="num">${f(pt,2)}</td><td colspan="3"></td></tr>`)+`</div>`;
   $("out").innerHTML=stat+ship+reps+pur+(user.role==="admin"?'<div id="per"></div>':"");
-  if(user.role==="admin")periods();
+  if(user.role==="admin"){periods(pp0);pp0=null}
  };
- async function periods(){
-  const ps=await getDocs(collection(db,"periods")),cl=ps.docs.filter(d=>d.data().closed===true).map(d=>d.id).sort().reverse();
+ async function periods(pre){
+  const ps=pre||await getDocs(collection(db,"periods")),cl=ps.docs.filter(d=>d.data().closed===true).map(d=>d.id).sort().reverse();
   $("per").innerHTML=`<div class="panel"><h2>قفل الفترات</h2><p class="soon">الفترة المقفلة لا تقبل أي حركة بتاريخ داخلها. الرصيد المرحّل يُحسب تلقائيًا من الحركات.</p>
   <div class="form-grid"><div><label>الشهر</label><input id="pm" type="month" value="${localToday().slice(0,7)}"></div></div>
   <button class="btn" id="cl" style="margin-top:1rem">قفل الفترة</button> <button class="btn ghost" id="op" style="color:var(--ink);border-color:var(--line)">إعادة فتح</button>

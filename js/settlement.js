@@ -11,9 +11,9 @@ export async function render(view,{db,user}){
  <button class="btn" style="margin-top:1rem">حفظ كمسودة</button><div class="err" id="er" role="alert"></div><div class="ok" id="ok"></div></form></div>
  <div class="panel"><h2>التسويات</h2><div class="tbl-wrap" id="list">جارٍ التحميل...</div></div>`;
  const $=id=>view.querySelector("#"+id);
- const [ps,rs]=await Promise.all([getDocs(collection(db,"purchases")),getDocs(collection(db,"reps"))]);
+ const [ps,rs,st0]=await Promise.all([getDocs(collection(db,"purchases")),getDocs(collection(db,"reps")),getDocs(query(collection(db,"settlements"),orderBy("date","desc"),limit(60)))]);
  const batches=ps.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>String(b.date).localeCompare(String(a.date)));
- const reps=rs.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>a.name.localeCompare(b.name,"ar"));
+ const reps=rs.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>String(a.name||"").localeCompare(String(b.name||""),"ar"));
  const book=batches.reduce((a,b)=>a+n(b.remainingLiters),0);
  const bOpt=batches.map(b=>`<option value="${b.id}">${esc(b.date)} - ${esc(b.supplierName)} (المتبقي ${f(b.remainingLiters,2)})</option>`).join("");
  const rOpt=reps.map(r=>`<option value="${r.id}">${esc(r.name)}</option>`).join("");
@@ -76,8 +76,8 @@ export async function render(view,{db,user}){
  const det=s=>s.type==="quantity"?`الدفتري ${f(s.bookLiters,2)} / الفعلي ${f(s.countedLiters,2)} / الفرق ${s.diff>0?"+":""}${f(s.diff,2)} لتر`+(s.diff<0?` - على ${esc(s.chargeRepName||"الشركة")}`:"")+(s.value!=null?` - القيمة ${f(s.value,2)}`:""):
   s.type==="rep"?`${s.amount>0?"زيادة":"تخفيض"} ${f(Math.abs(s.amount),2)} - ${esc(s.repName)}`:
   `شحنة ${esc(s.batchLabel)}: ترحيل ${f(s.dTransport,2)}، رسوم ${f(s.dStateFee,2)}، أخرى ${f(s.dOther,2)}`;
- async function load(){
-  const q=await getDocs(query(collection(db,"settlements"),orderBy("date","desc"),limit(60)));
+ async function load(pre){
+  const q=pre||await getDocs(query(collection(db,"settlements"),orderBy("date","desc"),limit(60)));
   if(q.empty){$("list").innerHTML='<p class="soon">لا توجد تسويات بعد.</p>';return}
   const arr=q.docs.map(d=>({id:d.id,...d.data()}));
   $("list").innerHTML=`<table class="tbl"><thead><tr><th>التاريخ</th><th>النوع</th><th>التفاصيل</th><th>السبب</th><th>الحالة</th><th></th></tr></thead><tbody>`+
@@ -86,5 +86,5 @@ export async function render(view,{db,user}){
   $("list").querySelectorAll("[data-a]").forEach(b=>b.onclick=()=>approve(arr.find(x=>x.id===b.dataset.a)));
   $("list").querySelectorAll("[data-r]").forEach(b=>b.onclick=()=>reject(arr.find(x=>x.id===b.dataset.r)));
  }
- load().catch(e=>{$("list").textContent="تعذّر التحميل: "+e.message});
+ load(st0).catch(e=>{$("list").textContent="تعذّر التحميل: "+e.message});
 }

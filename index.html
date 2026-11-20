@@ -37,6 +37,7 @@ onAuthStateChanged(auth,async u=>{
  const d=s.data();who.textContent=d.name+" ("+ROLE[d.role]+")";
  const allowed=PAGES.filter(p=>p[2].includes(d.role));
  const BUILT=["dashboard","purchases","reps","sales","accounts","inventory","settlement","reports","audit"];
+ BUILT.forEach(k=>{if(allowed.some(p=>p[0]===k))import(`./js/${k}.js`).catch(()=>{})});
  const go=async()=>{const k=location.hash.slice(1)||allowed[0][0];
   nav.innerHTML=allowed.map(p=>`<a href="#${p[0]}" class="${p[0]===k?"on":""}">${p[1]}</a>`).join("");
   const p=allowed.find(x=>x[0]===k)||allowed[0];
