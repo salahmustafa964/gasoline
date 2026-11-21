@@ -21,7 +21,8 @@ export async function render(view,ctx){
  const {db,user}=ctx,[a,b]=rng();
  view.innerHTML=dates(a,b)+'<div id="out">جارٍ التحميل...</div>';
  const $=id=>view.querySelector("#"+id);
- const [D0,pp]=await Promise.all([loadAll(db),user.role==="admin"?getDocs(collection(db,"periods")):null]);
+ const [D0,pp,rr]=await Promise.all([loadAll(db),user.role==="admin"?getDocs(collection(db,"periods")):null,getDocs(collection(db,"reps"))]);
+ const RM={};rr.forEach(d=>RM[d.id]=d.data().name);
  let D=D0,pp0=pp;
  const draw=()=>{
   const fr=$("fr").value,to=$("to").value,inR=d=>d>=fr&&d<=to,p=periodProfit(D,fr,to),row=(l,v,c="")=>`<tr class="${c}"><td>${l}</td><td class="num">${f(v,2)}</td></tr>`;
@@ -31,9 +32,9 @@ export async function render(view,ctx){
   const st=batchStats(D).filter(x=>x.b.date<=to).sort((x,y)=>String(y.b.date).localeCompare(String(x.b.date)));
   const ship=`<div class="panel"><h2>أرباح الشحنات</h2>`+tbl(["التاريخ","المورد","اللترات","المباع","المتبقي","إيراد المبيعات","تكلفة الشراء","الربح الإجمالي","ترحيل ورسوم","الصافي","الحالة"],
    st.map(x=>{const g=x.revenue-x.cost;return `<tr><td>${esc(x.b.date)}</td><td>${esc(x.b.supplierName)}</td><td class="num">${f(x.b.liters,2)}</td><td class="num">${f(x.sold,2)}</td><td class="num">${f(x.b.remainingLiters,2)}</td><td class="num">${f(x.revenue,2)}</td><td class="num">${f(x.cost,2)}</td><td class="num">${f(g,2)}</td><td class="num">${f(x.extras,2)}</td><td class="num"><b>${x.finished?f(g-x.extras,2):"—"}</b></td><td>${x.finished?'<span class="tag done">منتهية</span>':'<span class="tag">جارية</span>'}</td></tr>`}))+`</div>`;
-  const g={};D.sales.filter(s=>inR(s.date)).forEach(s=>{const r=g[s.repId]||(g[s.repId]={name:s.repName,L:0,V:0,P:0,C:0});r.L+=n(s.liters);r.V+=n(s.amount);r.P+=n(s.amount)-n(s.costTotal)});
+  const g={};D.sales.filter(s=>inR(s.date)).forEach(s=>{const r=g[s.repId]||(g[s.repId]={name:RM[s.repId]||s.repName,L:0,V:0,P:0,C:0});r.L+=n(s.liters);r.V+=n(s.amount);r.P+=n(s.amount)-n(s.costTotal)});
   const col={},bal={};D.ledger.filter(x=>x.repId).forEach(x=>{bal[x.repId]=(bal[x.repId]||0)+n(x.amount);if(x.type==="payment"&&inR(x.date))col[x.repId]=(col[x.repId]||0)-n(x.amount)});
-  Object.keys(col).forEach(id=>{if(!g[id]){const l=D.ledger.find(x=>x.repId===id&&x.repName);g[id]={name:l?l.repName:id,L:0,V:0,P:0}}});
+  Object.keys(col).forEach(id=>{if(!g[id]){const l=D.ledger.find(x=>x.repId===id&&x.repName);g[id]={name:RM[id]||(l?l.repName:id),L:0,V:0,P:0}}});
   const reps=`<div class="panel"><h2>تقرير المناديب</h2>`+tbl(["المندوب","اللترات المباعة","قيمة المبيعات","الربح الإجمالي","المحصّل في الفترة","المتبقي عليه حاليًا"],
    Object.entries(g).map(([id,r])=>`<tr><td>${esc(r.name)}</td><td class="num">${f(r.L,2)}</td><td class="num">${f(r.V,2)}</td><td class="num">${f(r.P,2)}</td><td class="num">${f(col[id],2)}</td><td class="num"><b>${f(bal[id],2)}</b></td></tr>`))+`</div>`;
   const pu=D.purchases.filter(x=>inR(x.date)).sort((x,y)=>y.date.localeCompare(x.date)),pt=pu.reduce((t,x)=>t+n(x.liters)*n(x.pricePerLiter),0);

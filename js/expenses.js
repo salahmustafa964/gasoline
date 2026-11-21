@@ -1,3 +1,4 @@
+import {openForm,fe} from "./dlg.js";
 import {collection,doc,writeBatch,serverTimestamp,getDocs,query,orderBy,limit} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import {n,f,esc,localToday} from "./util.js";
 const CATS=["إيجار","رواتب وأجور","وقود وتنقلات","صيانة","اتصالات وإنترنت","رسوم حكومية","أخرى"];
@@ -27,9 +28,10 @@ export async function render(view,{db,user}){
    <div class="stat"><b>${live.length}</b><span>عدد المصروفات</span></div></div>
    <div class="bars">${cats.length?cats.map(([c,v])=>`<div class="bar"><span>${esc(c)}</span><div class="track"><div class="fill" style="width:${Math.max(3,v/max*100)}%"></div></div><span class="v">${f(v,2)}</span></div>`).join(""):'<p class="soon">لا توجد مصروفات في هذه الفترة. اضغط "إضافة مصروف" لتسجيل أول مصروف.</p>'}</div></div>
    <div class="panel"><h2>السجل</h2>${r.length?`<div class="tbl-wrap"><table class="tbl"><thead><tr><th>التاريخ</th><th>البند</th><th>الوصف</th><th>المبلغ</th><th>سجّله</th>${isAdmin?"<th></th>":""}</tr></thead><tbody>`+
-   r.map(x=>`<tr class="${x.voided?"void":""}"><td>${esc(x.date)}</td><td>${esc(x.category)}${x.voided?' <span class="tag done">ملغى</span>':""}</td><td>${esc(x.description)}</td><td class="num"><b>${f(x.amount,2)}</b></td><td>${esc(x.createdByName)}</td>${isAdmin?`<td>${x.voided?"":`<button class="btn sm danger" data-v="${x.id}">إلغاء</button>`}</td>`:""}</tr>`).join("")+
+   r.map(x=>`<tr class="${x.voided?"void":""}"><td>${esc(x.date)}</td><td>${esc(x.category)}${x.voided?' <span class="tag done">ملغى</span>':""}</td><td>${esc(x.description)}</td><td class="num"><b>${f(x.amount,2)}</b></td><td>${esc(x.createdByName)}</td>${isAdmin?`<td>${x.voided?"":`<button class="btn sm" data-x="${x.id}">تعديل</button><button class="btn sm danger" data-v="${x.id}">إلغاء</button>`}</td>`:""}</tr>`).join("")+
    `</tbody></table></div>`:'<p class="soon">لا توجد مصروفات.</p>'}</div>`;
   $("out").querySelectorAll("[data-v]").forEach(b=>b.onclick=()=>voidIt(b.dataset.v));
+  $("out").querySelectorAll("[data-x]").forEach(b=>b.onclick=()=>editX(b.dataset.x));
  }
  const audit=(b,action,id,after)=>b.set(doc(collection(db,"auditLog")),{userId:user.uid,userName:user.name,action,collection:"expenses",docId:id,after,createdAt:serverTimestamp()});
  async function voidIt(id){const x=list.find(e=>e.id===id);$("er").textContent="";$("ok").textContent="";
@@ -37,6 +39,15 @@ export async function render(view,{db,user}){
   try{const b=writeBatch(db);b.update(doc(db,"expenses",id),{voided:true,voidedBy:user.uid,voidedAt:serverTimestamp()});
    audit(b,"إلغاء مصروف",id,{date:x.date,type:x.category,amount:x.amount});await b.commit();await fetchAll();draw();$("ok").textContent="تم إلغاء المصروف."}
   catch(e){$("er").textContent=/permission/i.test(e.message)?"تعذّر الإلغاء: الفترة مقفلة أو ليست لديك صلاحية.":"تعذّر الإلغاء: "+e.message}}
+ function editX(id){const x=list.find(e=>e.id===id);
+  openForm({title:"تعديل مصروف",fields:[{k:"date",label:"التاريخ",type:"date",req:1},{k:"category",label:"البند",type:"select",options:CATS.map(c=>({v:c,t:c}))},{k:"description",label:"الوصف"},{k:"amount",label:"المبلغ",type:"number",req:1}],
+   values:{date:x.date,category:x.category,description:x.description,amount:x.amount},
+   onSubmit:async v=>{const a=n(v.amount);if(!(a>0))throw new Error("أدخل مبلغًا أكبر من صفر.");if(v.category==="أخرى"&&!v.description.trim())throw new Error("اكتب وصفًا عند اختيار «أخرى».");
+    try{const b=writeBatch(db),nw={date:v.date,periodId:v.date.slice(0,7),category:v.category,description:v.description.trim(),amount:a};
+     b.update(doc(db,"expenses",id),{...nw,updatedBy:user.uid,updatedAt:serverTimestamp()});
+     b.set(doc(collection(db,"auditLog")),{userId:user.uid,userName:user.name,action:"تعديل مصروف",collection:"expenses",docId:id,before:{date:x.date,type:x.category,note:x.description,amount:x.amount},after:{date:nw.date,type:nw.category,note:nw.description,amount:a},createdAt:serverTimestamp()});
+     await b.commit()}catch(e){throw new Error(fe(e))}
+    await fetchAll();draw()}})}
  $("addb").onclick=()=>{$("xe").textContent="";$("dlg").showModal();$("xa").focus()};
  $("xc2").onclick=()=>$("dlg").close();
  $("ef").onsubmit=async ev=>{ev.preventDefault();$("xe").textContent="";
