@@ -27,13 +27,17 @@ service cloud.firestore {
       allow update: if isStaff() && col == 'purchases'
                     && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['remainingLiters','finishedDate']);
       allow update: if isAdmin() && col in ['purchases','settlements']
-                    && periodOpen(resource.data.periodId);
+                    && periodOpen(resource.data.periodId) && periodOpen(request.resource.data.periodId);
       // المبيعات: المندوب يقرأ مبيعاته فقط
       allow read: if col == 'sales' && (isStaff() || (role()=='rep' && resource.data.repId == me().repId));
       allow create: if col == 'sales' && isStaff() && periodOpen(request.resource.data.periodId);
-      allow update: if col == 'sales' && isAdmin() && periodOpen(resource.data.periodId);
+      allow update: if col == 'sales' && isAdmin() && periodOpen(resource.data.periodId) && periodOpen(request.resource.data.periodId);
       allow update: if isAdmin() && col == 'expenses' && periodOpen(resource.data.periodId)
                     && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['voided','voidedBy','voidedAt']);
+      // تعديلات المدير (مسجَّلة في سجل العمليات بقيمها قبل وبعد)
+      allow update: if isAdmin() && col in ['saleAllocations','stockMovements','ledger','expenses']
+                    && periodOpen(resource.data.periodId) && periodOpen(request.resource.data.periodId);
+      allow delete: if isAdmin() && col == 'saleAllocations' && periodOpen(resource.data.periodId);
       // سجلات لا تُعدَّل ولا تُحذف
       allow read: if isStaff() && col in ['ledger','stockMovements','auditLog'];
       allow create: if isStaff() && col in ['ledger','stockMovements','auditLog'];

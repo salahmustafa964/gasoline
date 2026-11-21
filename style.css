@@ -84,3 +84,5 @@ h3{margin:1.4rem 0 .4rem}
 .shell.collapsed{grid-template-columns:1fr}
 .shell.collapsed .side{display:none}
 .shell.collapsed .tgl svg{transform:rotate(180deg)}
+.chk{display:flex;align-items:center;gap:.6rem;margin:.9rem 0;font-weight:400}
+.chk input{width:auto}

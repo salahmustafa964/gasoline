@@ -1,7 +1,9 @@
+import {openForm,fe} from "./dlg.js";
+import {editSale} from "./edits.js";
 import {collection,doc,runTransaction,serverTimestamp,query,orderBy,limit,getDocs,where} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import {n,f,esc,localToday} from "./util.js";
 export async function render(view,{db,user}){
- const canWrite=user.role!=="rep";
+ const canWrite=user.role!=="rep",isAdmin=user.role==="admin";
  view.innerHTML=(canWrite?`
  <div class="panel"><h2>فاتورة بيع لمندوب</h2><form id="sf"><div class="form-grid">
   <div><label>التاريخ</label><input id="date" type="date" required value="${localToday()}"></div>
@@ -13,7 +15,9 @@ export async function render(view,{db,user}){
   <div class="err" id="er" role="alert"></div><div class="ok" id="ok"></div></form></div>`:"")+
  `<div class="panel"><h2>آخر المبيعات</h2><div class="tbl-wrap" id="list">جارٍ التحميل...</div></div>`;
  const $=id=>view.querySelector("#"+id);
- let bal=0,accs=[];
+ let bal=0,accs=[],repMap={};
+ const salesQ=()=>Promise.all([getDocs(canWrite?query(collection(db,"sales"),orderBy("date","desc"),limit(60)):query(collection(db,"sales"),where("repId","==",user.repId||"-"),limit(200))),canWrite?getDocs(query(collection(db,"ledger"),limit(5000))):Promise.resolve(null)]);
+ const pFirst=salesQ(),pRA=canWrite?Promise.all([getDocs(collection(db,"reps")),getDocs(collection(db,"accounts"))]):null;
  const q=(el,c)=>el.querySelector("."+c);
  const read=()=>[...view.querySelectorAll(".line")].map(el=>{const L=n(q(el,"li").value),P=n(q(el,"pr").value),paid=n(q(el,"pd").value),a=q(el,"ac");
   return {el,entity:q(el,"en").value.trim(),L,P,paid,amount:L*P,accId:a.value,accName:a.value?a.selectedOptions[0].text:"",method:q(el,"pm").value,note:q(el,"nt").value.trim()}});
@@ -34,15 +38,21 @@ export async function render(view,{db,user}){
  async function repBal(){if(!$("rep").value){bal=0;upd();return}
   const s=await getDocs(query(collection(db,"ledger"),where("repId","==",$("rep").value)));
   bal=0;s.forEach(d=>bal+=n(d.data().amount));upd()}
- async function load(){
-  const [s,ls]=await Promise.all([getDocs(query(collection(db,"sales"),orderBy("date","desc"),limit(60))),canWrite?getDocs(query(collection(db,"ledger"),limit(5000))):Promise.resolve(null)]);
+ async function load(pre){
+  if(pRA)(await pRA)[0].forEach(d=>repMap[d.id]=d.data().name);
+  const [s,ls]=pre||await salesQ();
   if(s.empty){$("list").innerHTML='<p class="soon">لا توجد مبيعات بعد.</p>';return}
   const pay={};if(ls)ls.forEach(d=>{const x=d.data();if(x.type==="payment"&&x.ref){const p=pay[x.ref]||(pay[x.ref]={sum:0,tags:new Set()});p.sum-=n(x.amount);const t=[x.accountName,x.method].filter(Boolean).join(" - ");if(t)p.tags.add(t)}});
-  $("list").innerHTML=`<table class="tbl"><thead><tr><th>التاريخ</th><th>المندوب</th><th>الجهة</th><th>اللترات</th><th>السعر</th><th>القيمة</th><th>المسدّد</th><th>الحساب / الطريقة</th><th>المتبقي</th>${canWrite?"<th>الربح (قبل الترحيل والرسوم)</th>":""}</tr></thead><tbody>`+
-  s.docs.map(d=>{const x=d.data(),p=pay[d.id],paid=p?p.sum:n(x.paid),tags=p?[...p.tags].map(esc).join("، "):esc(x.paidAccountName);
-   return `<tr><td>${esc(x.date)}</td><td>${esc(x.repName)}</td><td>${esc(x.entity)}</td><td class="num">${f(x.liters)}</td><td class="num">${f(x.pricePerLiter,2)}</td><td class="num">${f(x.amount,2)}</td><td class="num">${f(paid,2)}</td><td>${tags}</td><td class="num">${f(n(x.amount)-paid,2)}</td>${canWrite?`<td class="num">${f(n(x.amount)-n(x.costTotal),2)}</td>`:""}</tr>`}).join("")+"</tbody></table>"}
+  $("list").innerHTML=`<table class="tbl"><thead><tr><th>التاريخ</th><th>المندوب</th><th>الجهة</th><th>اللترات</th><th>السعر</th><th>القيمة</th><th>المسدّد</th><th>الحساب / الطريقة</th><th>المتبقي</th>${canWrite?"<th>الربح (قبل الترحيل والرسوم)</th>":""}${isAdmin?"<th></th>":""}</tr></thead><tbody>`+
+  [...s.docs].sort((a,b)=>String(b.data().date).localeCompare(String(a.data().date))).slice(0,60).map(d=>{const x=d.data(),p=pay[d.id],paid=p?p.sum:n(x.paid),tags=p?[...p.tags].map(esc).join("، "):esc(x.paidAccountName);
+   return `<tr><td>${esc(x.date)}</td><td>${esc(repMap[x.repId]||x.repName)}</td><td>${esc(x.entity)}</td><td class="num">${f(x.liters)}</td><td class="num">${f(x.pricePerLiter,2)}</td><td class="num">${f(x.amount,2)}</td><td class="num">${f(paid,2)}</td><td>${tags}</td><td class="num">${f(n(x.amount)-paid,2)}</td>${canWrite?`<td class="num">${f(n(x.amount)-n(x.costTotal),2)}</td>`:""}${isAdmin?`<td><button class="btn sm" data-e="${d.id}">تعديل</button></td>`:""}</tr>`}).join("")+"</tbody></table>";
+  if(isAdmin)$("list").querySelectorAll("[data-e]").forEach(b=>b.onclick=()=>{const id=b.dataset.e,x=s.docs.find(d=>d.id===id).data();
+   openForm({title:"تعديل حمولة",note:"يُعاد حساب المخزون والتكلفة وحساب المندوب تلقائيًا، ويُسجَّل التعديل في سجل العمليات.",
+    fields:[{k:"date",label:"التاريخ",type:"date",req:1},{k:"entity",label:"الجهة"},{k:"liters",label:"الكمية (لتر)",type:"number",req:1},{k:"price",label:"سعر البيع للتر",type:"number",req:1}],
+    values:{date:x.date,entity:x.entity,liters:x.liters,price:x.pricePerLiter},
+    onSubmit:async v=>{try{await editSale(db,user,id,v)}catch(e){throw new Error(fe(e))}await load();if($("rep"))repBal()}})})}
  if(canWrite){
-  const [rs,as]=await Promise.all([getDocs(collection(db,"reps")),getDocs(collection(db,"accounts"))]);
+  const [rs,as]=await pRA;
   const reps=rs.docs.map(d=>({id:d.id,...d.data()})).filter(r=>r.active!==false);
   accs=as.docs.map(d=>({id:d.id,...d.data()})).filter(a=>a.active!==false);
   if(!reps.length){$("sf").innerHTML='<p class="soon">أضف مندوبًا أولًا من صفحة المناديب. وأضف حساب استلام من صفحة حسابات الاستلام.</p>'}
@@ -82,5 +92,5 @@ export async function render(view,{db,user}){
     }catch(e){
      $("er").textContent=e.message.startsWith("STOCK:")?`المتاح في المخزون بتاريخ ${date} هو ${e.message.slice(6)} لتر فقط، والمطلوب أكثر من ذلك.`:/permission/i.test(e.message)?"تعذّر الحفظ: الفترة مقفلة أو ليست لديك صلاحية.":"تعذّر الحفظ: "+e.message}};
   }}
- load().catch(e=>{$("list").textContent="تعذّر التحميل: "+e.message});
+ pFirst.then(load).catch(e=>{$("list").textContent="تعذّر التحميل: "+e.message});
 }

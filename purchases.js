@@ -1,3 +1,5 @@
+import {openForm,fe} from "./dlg.js";
+import {editPurchase} from "./edits.js";
 import {collection,doc,writeBatch,serverTimestamp,query,orderBy,limit,getDocs} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 const n=v=>Number(v)||0;
 const f=(v,d=0)=>n(v).toLocaleString("en-US",{maximumFractionDigits:d});
@@ -5,6 +7,7 @@ const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&g
 const localToday=()=>new Date(Date.now()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,10);
 
 export async function render(view,{db,user}){
+ const isAdmin=user.role==="admin";
  view.innerHTML=`
  <div class="panel"><h2>شحنة جديدة</h2>
  <form id="pf"><div class="form-grid">
@@ -35,9 +38,14 @@ export async function render(view,{db,user}){
    return `<tr><td>${esc(x.date)}</td><td>${esc(x.supplierName)}</td><td class="num">${f(x.liters)}</td>
    <td class="num"><b>${f(x.pricePerLiter,2)}</b></td><td class="num">${f(n(x.liters)*n(x.pricePerLiter),2)}</td>
    <td class="num">${f(n(x.transport)+n(x.stateFee)+n(x.otherCost),2)}</td><td class="num">${f(x.remainingLiters)}</td>
-   <td>${n(x.remainingLiters)>0?'<span class="tag">متاحة</span>':'<span class="tag done">منتهية</span>'}</td></tr>`}).join("");
-  $("list").innerHTML=`<table class="tbl"><thead><tr><th>التاريخ</th><th>المورد</th><th>اللترات</th><th>تكلفة اللتر</th><th>قيمة الشراء</th><th>ترحيل ورسوم (تُخصم لاحقًا)</th><th>المتبقي</th><th>الحالة</th></tr></thead><tbody>${rows}</tbody></table>
+   <td>${n(x.remainingLiters)>0?'<span class="tag">متاحة</span>':'<span class="tag done">منتهية</span>'}</td>${isAdmin?`<td><button class="btn sm" data-e="${d.id}">تعديل</button></td>`:""}</tr>`}).join("");
+  $("list").innerHTML=`<table class="tbl"><thead><tr><th>التاريخ</th><th>المورد</th><th>اللترات</th><th>تكلفة اللتر</th><th>قيمة الشراء</th><th>ترحيل ورسوم (تُخصم لاحقًا)</th><th>المتبقي</th><th>الحالة</th>${isAdmin?"<th></th>":""}</tr></thead><tbody>${rows}</tbody></table>
   <p><b>إجمالي المتبقي في الدفعات: ${f(rem)} لتر</b></p>`;
+  if(isAdmin)$("list").querySelectorAll("[data-e]").forEach(b=>b.onclick=()=>{const id=b.dataset.e,x=s.docs.find(d=>d.id===id).data();
+   openForm({title:"تعديل شحنة",note:"يُعاد حساب المتبقي وتكلفة المبيعات المرتبطة تلقائيًا، ويُسجَّل التعديل في سجل العمليات.",
+    fields:[{k:"date",label:"تاريخ الوصول",type:"date",req:1},{k:"supplier",label:"المورد",req:1},{k:"liters",label:"الكمية (لتر)",type:"number",req:1},{k:"price",label:"سعر الشراء للتر",type:"number",req:1},{k:"transport",label:"الترحيل (إجمالي)",type:"number"},{k:"stateFee",label:"رسوم الولاية (إجمالي)",type:"number"},{k:"other",label:"أخرى (إجمالي)",type:"number"}],
+    values:{date:x.date,supplier:x.supplierName,liters:x.liters,price:x.pricePerLiter,transport:x.transport,stateFee:x.stateFee,other:x.otherCost},
+    onSubmit:async v=>{try{await editPurchase(db,user,id,v)}catch(e){throw new Error(fe(e))}await load()}})});
  }
 
  $("pf").addEventListener("submit",async ev=>{
