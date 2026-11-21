@@ -73,3 +73,7 @@ dialog h3{margin:0 0 .4rem;font-size:1.4rem}
 .dlg-actions{display:flex;gap:.8rem;margin-top:1.4rem}
 .dlg-actions .btn.ghost{color:var(--ink);border-color:var(--line)}
 @media(max-width:760px){.bar{grid-template-columns:6rem 1fr 5.5rem}}
+[hidden]{display:none!important}
+.lnk{background:none;border:0;color:var(--ink);font-weight:700;text-decoration:underline;text-decoration-color:var(--amber);text-underline-offset:.25em;cursor:pointer;padding:0}
+.srch{max-width:26rem;margin-bottom:1rem}
+h3{margin:1.4rem 0 .4rem}

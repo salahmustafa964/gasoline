@@ -16,7 +16,8 @@ export async function render(view,{db,user}){
   <div><label>ملحوظة (اختياري)</label><input id="pn"></div></div>
   <button class="btn" style="margin-top:1rem">حفظ السداد</button></form></div>
  <div class="err" id="er" role="alert"></div><div class="ok" id="ok"></div>
- <div class="panel"><h2>حسابات المناديب</h2><div class="tbl-wrap" id="list">جارٍ التحميل...</div></div>`;
+ <div class="panel"><h2>حسابات المناديب</h2><div class="srch"><label for="rq">بحث باسم المندوب</label><input id="rq" type="search" placeholder="اكتب اسم المندوب لعرض كل تفاصيله"></div><div class="tbl-wrap" id="list">جارٍ التحميل...</div></div>
+ <div id="detail"></div>`;
  const $=id=>view.querySelector("#"+id);
  const audit=(b,action,col,id,after)=>b.set(doc(collection(db,"auditLog")),{userId:user.uid,userName:user.name,action,collection:col,docId:id,after,createdAt:serverTimestamp()});
  const fail=e=>{$("er").textContent=/permission/i.test(e.message)?"تعذّر الحفظ: ليست لديك صلاحية.":"تعذّر الحفظ: "+e.message};
@@ -42,14 +43,36 @@ export async function render(view,{db,user}){
   $("ps").innerHTML=reps.map(r=>`<option value="${r.id}">${esc(r.name)}${r.active===false?" (موقوف)":""}</option>`).join("");
   if(cur)$("ps").value=cur;
   loadOpen();
-  if(!reps.length){$("list").innerHTML='<p class="soon">لا يوجد مناديب بعد.</p>';return}
-  let all=0;
-  $("list").innerHTML=`<table class="tbl"><thead><tr><th>المندوب</th><th>الهاتف</th><th>إجمالي المسحوب</th><th>المسدّد</th><th>المتبقي عليه</th><th></th></tr></thead><tbody>`+
-  reps.map(r=>{all+=n(t[r.id]);return `<tr><td>${esc(r.name)}${r.active===false?' <span class="tag done">موقوف</span>':""}</td><td>${esc(r.phone)}</td><td class="num">${f(sold[r.id],2)}</td><td class="num">${f(paid[r.id],2)}</td><td class="num"><b>${f(t[r.id],2)}</b></td>
-  <td><button class="btn sm" data-t="${r.id}">${r.active===false?"تفعيل":"إيقاف"}</button><button class="btn sm danger" data-d="${r.id}" data-n="${esc(r.name)}">حذف</button></td></tr>`}).join("")+
-  `</tbody></table><p><b>إجمالي المديونيات: ${f(all,2)}</b></p>`;
+  state={reps,t,sold,paid};drawList();
+ }
+ let state={reps:[],t:{},sold:{},paid:{}};
+ function drawList(){
+  const {reps,t,sold,paid}=state,q=($("rq").value||"").trim().toLowerCase();
+  if(!reps.length){$("list").innerHTML='<p class="soon">لا يوجد مناديب بعد.</p>';$("detail").innerHTML="";return}
+  const shown=reps.filter(r=>!q||String(r.name||"").toLowerCase().includes(q));
+  let all=0;shown.forEach(r=>all+=n(t[r.id]));
+  $("list").innerHTML=shown.length?`<table class="tbl"><thead><tr><th>المندوب</th><th>الهاتف</th><th>إجمالي المسحوب</th><th>المسدّد</th><th>المتبقي عليه</th><th></th></tr></thead><tbody>`+
+  shown.map(r=>`<tr><td><button class="lnk" data-s="${r.id}">${esc(r.name||"(بدون اسم)")}</button>${r.active===false?' <span class="tag done">موقوف</span>':""}</td><td>${esc(r.phone)}</td><td class="num">${f(sold[r.id],2)}</td><td class="num">${f(paid[r.id],2)}</td><td class="num"><b>${f(t[r.id],2)}</b></td>
+  <td><button class="btn sm" data-t="${r.id}">${r.active===false?"تفعيل":"إيقاف"}</button><button class="btn sm danger" data-d="${r.id}" data-n="${esc(r.name)}">حذف</button></td></tr>`).join("")+
+  `</tbody></table><p><b>إجمالي المديونيات${q?" (للنتائج)":""}: ${f(all,2)}</b></p>`:'<p class="soon">لا يوجد مندوب بهذا الاسم.</p>';
   $("list").querySelectorAll("[data-t]").forEach(b=>b.onclick=()=>toggle(b.dataset.t,reps));
   $("list").querySelectorAll("[data-d]").forEach(b=>b.onclick=()=>del(b.dataset.d,b.dataset.n));
+  $("list").querySelectorAll("[data-s]").forEach(b=>b.onclick=()=>{showDetail(b.dataset.s);$("detail").scrollIntoView({behavior:"smooth"})});
+  if(q&&shown.length===1)showDetail(shown[0].id);else if(!q||!shown.length)$("detail").innerHTML="";
+ }
+ function showDetail(id){
+  const r=state.reps.find(x=>x.id===id);if(!r)return;
+  const L=cache.l.filter(x=>x.repId===id),S=cache.s.filter(x=>x.repId===id).sort((x,y)=>String(x.date).localeCompare(String(y.date))||(x.lineNo||0)-(y.lineNo||0));
+  const pd={},tg={};L.forEach(x=>{if(x.type==="payment"&&x.ref){pd[x.ref]=(pd[x.ref]||0)-n(x.amount);const k=[x.accountName,x.method].filter(Boolean).join(" - ");if(k)(tg[x.ref]||(tg[x.ref]=new Set())).add(k)}});
+  const TY={sale:"فاتورة",payment:"سداد",settlement:"تسوية"},mv=L.filter(x=>x.type!=="sale").sort((x,y)=>String(y.date).localeCompare(String(x.date)));
+  const tbl=(h,rows)=>rows.length?`<div class="tbl-wrap"><table class="tbl"><thead><tr>${h.map(x=>`<th>${x}</th>`).join("")}</tr></thead><tbody>${rows.join("")}</tbody></table></div>`:'<p class="soon">لا توجد حركات.</p>';
+  $("detail").innerHTML=`<div class="panel"><h2>تفاصيل المندوب: ${esc(r.name)}</h2><p class="soon">${esc(r.phone)}</p>
+  <div class="grid"><div class="stat"><b>${f(state.sold[id],2)}</b><span>إجمالي المسحوب</span></div><div class="stat good"><b>${f(state.paid[id],2)}</b><span>المسدّد</span></div>
+  <div class="stat bad"><b>${f(state.t[id],2)}</b><span>المتبقي عليه</span></div><div class="stat"><b>${S.length}</b><span>عدد الحمولات</span></div></div>
+  <h3>الحمولات</h3>`+tbl(["التاريخ","الجهة","اللترات","السعر","القيمة","المسدّد","الحساب / الطريقة","المتبقي"],
+   S.map(x=>{const p=n(pd[x.id]);return `<tr><td>${esc(x.date)}</td><td>${esc(x.entity)}</td><td class="num">${f(x.liters,2)}</td><td class="num">${f(x.pricePerLiter,2)}</td><td class="num">${f(x.amount,2)}</td><td class="num">${f(p,2)}</td><td>${tg[x.id]?[...tg[x.id]].map(esc).join("، "):""}</td><td class="num"><b>${f(n(x.amount)-p,2)}</b></td></tr>`}))+
+  `<h3>السدادات والتسويات</h3>`+tbl(["التاريخ","النوع","المبلغ","الجهة","الحساب","الطريقة","ملحوظة"],
+   mv.map(x=>`<tr><td>${esc(x.date)}</td><td>${TY[x.type]||esc(x.type)}</td><td class="num">${x.type==="payment"?f(-n(x.amount),2):(n(x.amount)>0?"+":"")+f(x.amount,2)}</td><td>${esc(x.entity)}</td><td>${esc(x.accountName)}</td><td>${esc(x.method)}</td><td>${esc(x.note)}</td></tr>`))+`</div>`;
  }
  async function toggle(id,reps){const r=reps.find(x=>x.id===id),act=r.active===false;
   try{const b=writeBatch(db);b.update(doc(db,"reps",id),{active:act});audit(b,act?"تفعيل مندوب":"إيقاف مندوب","reps",id,{name:r.name});await b.commit();load()}catch(e){fail(e)}}
@@ -58,7 +81,7 @@ export async function render(view,{db,user}){
    if(!a.empty||!b2.empty){$("er").textContent=`لا يمكن حذف «${name}» لأن له حركات مسجلة. استخدم "إيقاف" فيختفي من قوائم البيع ويبقى في التقارير.`;return}
    if(!confirm(`حذف المندوب «${name}» نهائيًا؟`))return;
    const b=writeBatch(db);b.delete(doc(db,"reps",id));audit(b,"حذف مندوب","reps",id,{name});await b.commit();$("ok").textContent="تم حذف المندوب.";load()}catch(e){fail(e)}}
- $("ps").onchange=loadOpen;
+ $("ps").onchange=loadOpen;$("rq").oninput=drawList;
  $("rf").onsubmit=async ev=>{ev.preventDefault();$("er").textContent="";$("ok").textContent="";
   try{const id=doc(collection(db,"reps")).id,rec={name:$("rn").value.trim(),phone:$("rp").value.trim(),active:true};
    const b=writeBatch(db);b.set(doc(db,"reps",id),{...rec,createdAt:serverTimestamp()});audit(b,"إضافة مندوب","reps",id,rec);await b.commit();

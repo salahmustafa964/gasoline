@@ -18,11 +18,18 @@ export async function render(view,{db,user}){
  const bOpt=batches.map(b=>`<option value="${b.id}">${esc(b.date)} - ${esc(b.supplierName)} (المتبقي ${f(b.remainingLiters,2)})</option>`).join("");
  const rOpt=reps.map(r=>`<option value="${r.id}">${esc(r.name)}</option>`).join("");
  const bl=id=>{const b=batches.find(x=>x.id===id);return b?`${b.date} - ${b.supplierName}`:""};
+ const qdiff=()=>{const m=$("qm").value;if(m==="count"){const v=$("cl").value;return v===""?0:r3(n(v)-book)}const x=n($("dl").value);return m==="short"?-x:x};
  function fields(){const t=$("ty").value;
-  if(t==="quantity"){$("fl").innerHTML=`<div class="form-grid"><div><label>الكمية الفعلية بالجرد (لتر)</label><input id="cl" type="number" step="any" min="0" required></div>
-   <div><label>العجز يُحمَّل على</label><select id="ch"><option value="">الشركة (يُخصم من الربح)</option>${rOpt}</select></div>
-   <div><label>الزيادة (إن وُجدت) تُضاف إلى شحنة</label><select id="sb">${bOpt}</select></div></div><div class="preview" id="qp">الرصيد الدفتري: ${f(book,2)} لتر</div>`;
-   $("cl").oninput=()=>{const d=r3(n($("cl").value)-book);$("qp").textContent=`الرصيد الدفتري: ${f(book,2)} | الفرق: ${d>0?"زيادة ":d<0?"عجز ":""}${f(Math.abs(d),2)} لتر`}}
+  if(t==="quantity"){$("fl").innerHTML=`<div class="form-grid">
+   <div><label>طريقة الإدخال</label><select id="qm"><option value="count">بالجرد (أدخل الكمية الفعلية)</option><option value="short">نقصان (أدخل كمية النقص)</option><option value="over">زيادة (أدخل كمية الزيادة)</option></select></div>
+   <div id="qcw"><label>الكمية الفعلية بالجرد (لتر)</label><input id="cl" type="number" step="any" min="0"></div>
+   <div id="qdw" hidden><label>كمية الفرق (لتر)</label><input id="dl" type="number" step="any" min="0"></div>
+   <div id="qch" hidden><label>النقص يُحمَّل على</label><select id="ch"><option value="">الشركة (يُخصم من الربح)</option>${rOpt}</select></div>
+   <div id="qsb" hidden><label>الزيادة تُضاف إلى شحنة</label><select id="sb">${bOpt}</select></div></div><div class="preview" id="qp"></div>`;
+   const upd=()=>{const m=$("qm").value;$("qcw").hidden=m!=="count";$("qdw").hidden=m==="count";$("cl").required=m==="count";$("dl").required=m!=="count";
+    const d=qdiff();$("qch").hidden=!(d<0);$("qsb").hidden=!(d>0);
+    $("qp").textContent=`الرصيد الدفتري: ${f(book,2)} لتر`+(d?` | ${d>0?"زيادة":"نقصان"} ${f(Math.abs(d),2)} لتر`+(d<0&&-d>book?" (أكبر من الرصيد الدفتري)":""):"")};
+   $("fl").querySelectorAll("input,select").forEach(e=>{e.oninput=upd;e.onchange=upd});upd()}
   else if(t==="rep")$("fl").innerHTML=`<div class="form-grid"><div><label>المندوب</label><select id="rp" required>${rOpt}</select></div>
    <div><label>نوع التعديل</label><select id="dr"><option value="1">زيادة على المندوب</option><option value="-1">تخفيض عن المندوب</option></select></div>
    <div><label>المبلغ</label><input id="am" type="number" step="any" min="0" required></div></div>`;
@@ -35,9 +42,9 @@ export async function render(view,{db,user}){
  const audit=(b,action,id,after)=>b.set(doc(collection(db,"auditLog")),{userId:user.uid,userName:user.name,action,collection:"settlements",docId:id,after,createdAt:serverTimestamp()});
  $("sf").onsubmit=async ev=>{ev.preventDefault();$("er").textContent="";$("ok").textContent="";
   const type=$("ty").value,date=$("dt").value,rec={type,date,periodId:date.slice(0,7),status:"draft",reason:$("rs").value.trim(),createdBy:user.uid};
-  if(type==="quantity"){const c=n($("cl").value),d=r3(c-book);if(Math.abs(d)<0.0005){$("er").textContent="لا يوجد فرق بين الرصيد الدفتري والفعلي.";return}
-   Object.assign(rec,{bookLiters:book,countedLiters:c,diff:d,chargeRepId:$("ch").value,chargeRepName:$("ch").value?$("ch").selectedOptions[0].text:"",surplusBatchId:d>0?$("sb").value:""});
-   if(d>0&&!rec.surplusBatchId){$("er").textContent="اختر الشحنة التي تُضاف إليها الزيادة.";return}}
+  if(type==="quantity"){const d=qdiff(),c=$("qm").value==="count"?n($("cl").value):r3(book+d);if(Math.abs(d)<0.0005){$("er").textContent="لا يوجد فرق. أدخل كمية أو غيّر طريقة الإدخال.";return}
+   Object.assign(rec,{bookLiters:book,countedLiters:c,diff:d,chargeRepId:d<0?$("ch").value:"",chargeRepName:d<0&&$("ch").value?$("ch").selectedOptions[0].text:"",surplusBatchId:d>0?$("sb").value:""});
+   if(d>0&&!rec.surplusBatchId){$("er").textContent="اختر الشحنة التي تُضاف إليها الزيادة. إن لم توجد شحنات أضف شحنة أولًا.";return}}
   else if(type==="rep"){const a=n($("am").value);if(!(a>0)||!$("rp").value){$("er").textContent="اختر المندوب وأدخل مبلغًا أكبر من صفر.";return}
    Object.assign(rec,{repId:$("rp").value,repName:$("rp").selectedOptions[0].text,amount:a*Number($("dr").value)})}
   else{const d1=n($("d1").value),d2=n($("d2").value),d3=n($("d3").value);if(!d1&&!d2&&!d3){$("er").textContent="أدخل فرقًا واحدًا على الأقل.";return}
