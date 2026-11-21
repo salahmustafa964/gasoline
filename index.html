@@ -4,10 +4,10 @@
 <title>الرئيسية</title>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css"></head>
-<body><div class="shell">
+<body><div class="shell" id="shell">
 <aside class="side"><h2 id="app"></h2><nav id="nav"></nav></aside>
 <main class="main">
- <div class="top"><div class="date" id="today"></div><div><span class="who" id="who"></span> <button class="btn ghost" id="out">خروج</button></div></div>
+ <div class="top"><div class="lead"><button class="tgl" id="tgl" type="button" aria-expanded="true" aria-label="إخفاء القائمة" title="إخفاء / إظهار القائمة"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button><div class="date" id="today"></div></div><div><span class="who" id="who"></span> <button class="btn ghost" id="out">خروج</button></div></div>
  <section id="view"></section>
 </main></div>
 <script type="module">
@@ -31,6 +31,10 @@ const ROLE={admin:"مدير",accountant:"محاسب",rep:"مندوب"};
 document.getElementById("app").textContent=APP_NAME;
 document.getElementById("today").textContent=new Date().toLocaleDateString("ar-SD",{weekday:"long",year:"numeric",month:"long",day:"numeric"});
 out.onclick=()=>signOut(auth);
+const shell=document.getElementById("shell"),tgl=document.getElementById("tgl");
+const setC=c=>{shell.classList.toggle("collapsed",c);tgl.setAttribute("aria-expanded",String(!c));tgl.setAttribute("aria-label",c?"إظهار القائمة":"إخفاء القائمة");try{localStorage.setItem("sbc",c?"1":"0")}catch{}};
+let c0=false;try{c0=localStorage.getItem("sbc")==="1"}catch{}
+setC(c0);tgl.onclick=()=>setC(!shell.classList.contains("collapsed"));
 onAuthStateChanged(auth,async u=>{
  if(!u){location.href="login.html";return}
  const s=await getDoc(doc(db,"users",u.uid));

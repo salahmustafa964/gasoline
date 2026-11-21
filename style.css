@@ -77,3 +77,10 @@ dialog h3{margin:0 0 .4rem;font-size:1.4rem}
 .lnk{background:none;border:0;color:var(--ink);font-weight:700;text-decoration:underline;text-decoration-color:var(--amber);text-underline-offset:.25em;cursor:pointer;padding:0}
 .srch{max-width:26rem;margin-bottom:1rem}
 h3{margin:1.4rem 0 .4rem}
+.lead{display:flex;align-items:center;gap:1rem}
+.tgl{width:2.7rem;height:2.7rem;border:1.5px solid var(--line);background:#fff;border-radius:.4rem;cursor:pointer;display:grid;place-items:center;color:var(--ink);padding:0}
+.tgl:hover{background:var(--paper)}
+.tgl svg{transition:transform .2s}
+.shell.collapsed{grid-template-columns:1fr}
+.shell.collapsed .side{display:none}
+.shell.collapsed .tgl svg{transform:rotate(180deg)}
