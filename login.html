@@ -3,7 +3,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>تسجيل الدخول</title>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css"></head>
+<link rel="stylesheet" href="style.css?v=16"></head>
 <body class="login"><form class="login-box" id="f">
 <h1 id="t">نظام الجازولين</h1><p>سجّل دخولك للمتابعة</p>
 <label for="e">البريد الإلكتروني</label><input id="e" type="email" required autocomplete="username">
@@ -12,7 +12,7 @@
 <script type="module">
 import {initializeApp} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import {getAuth,signInWithEmailAndPassword,onAuthStateChanged} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import {firebaseConfig,APP_NAME} from "./firebase-config.js";
+import {firebaseConfig,APP_NAME} from "./firebase-config.js?v=16";
 document.getElementById("t").textContent=APP_NAME;
 const auth=getAuth(initializeApp(firebaseConfig));
 onAuthStateChanged(auth,u=>{if(u)location.href="index.html"});
