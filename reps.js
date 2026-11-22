@@ -1,3 +1,5 @@
+import {printDoc} from "./pdf.js";
+import {APP_NAME} from "../firebase-config.js";
 import {collection,doc,writeBatch,serverTimestamp,getDocs,query,limit,where} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import {n,f,esc,localToday} from "./util.js";
 import {openForm,fe} from "./dlg.js";
@@ -29,7 +31,7 @@ export async function render(view,{db,user}){
  const audit=(b,action,col,id,after,before)=>b.set(doc(collection(db,"auditLog")),{userId:user.uid,userName:user.name,action,collection:col,docId:id,after,...(before?{before}:{}),createdAt:serverTimestamp()});
  const fail=e=>{$("er").textContent=fe(e)};
  const r2=x=>Math.round(x*100)/100;
- let open=[],cache={s:[],l:[]},state={reps:[],t:{},accs:[]},sel="";
+ let open=[],cache={s:[],l:[]},state={reps:[],t:{},accs:[],pn:{}},sel="";
  function loadOpen(){
   const rid=$("ps").value;open=[];
   if(rid){const paid={};cache.l.forEach(x=>{if(x.repId===rid&&x.type==="payment"&&x.ref)paid[x.ref]=(paid[x.ref]||0)-n(x.amount)});
@@ -38,7 +40,7 @@ export async function render(view,{db,user}){
   $("pl").innerHTML='<option value="">سداد عام (يُوزَّع على الأقدم أولًا)</option>'+open.map(x=>`<option value="${x.id}">${esc(x.date)} - ${esc(x.entity||"بدون جهة")} - ${f(x.liters)} لتر - المتبقي ${f(x.rem,2)}</option>`).join("");
  }
  async function load(){
-  const [rs,ls,as,ss]=await Promise.all([getDocs(collection(db,"reps")),getDocs(query(collection(db,"ledger"),limit(5000))),getDocs(collection(db,"accounts")),getDocs(query(collection(db,"sales"),limit(5000)))]);
+  const [rs,ls,as,ss,ps]=await Promise.all([getDocs(collection(db,"reps")),getDocs(query(collection(db,"ledger"),limit(5000))),getDocs(collection(db,"accounts")),getDocs(query(collection(db,"sales"),limit(5000))),getDocs(collection(db,"periods"))]);
   const accs=as.docs.map(d=>({id:d.id,...d.data()})).filter(a=>a.active!==false);
   $("pc").innerHTML='<option value="">— غير محدد —</option>'+accs.map(a=>`<option value="${a.id}">${esc(a.name)}</option>`).join("");
   cache={s:ss.docs.map(d=>({id:d.id,...d.data()})),l:ls.docs.map(d=>({id:d.id,...d.data()}))};
@@ -47,7 +49,7 @@ export async function render(view,{db,user}){
   const cur=$("ps").value;
   $("ps").innerHTML=reps.map(r=>`<option value="${r.id}">${esc(r.name)}${r.active===false?" (موقوف)":""}</option>`).join("");
   if(cur)$("ps").value=cur;
-  state={reps,t,accs};loadOpen();drawList();
+  const pn={};ps.forEach(d=>pn[d.id]=d.data().name||d.id);state={reps,t,accs,pn};loadOpen();drawList();
  }
  const rangeOk=(d,fr,to)=>(!fr||d>=fr)&&(!to||d<=to);
  function stats(id,fr,to){
@@ -63,12 +65,13 @@ export async function render(view,{db,user}){
   const tot=rows.reduce((a,x)=>({o:a.o+x.s.orders,c:a.c+x.s.loads,l:a.l+x.s.liters,v:a.v+x.s.value,p:a.p+x.s.paid,b:a.b+n(t[x.r.id])}),{o:0,c:0,l:0,v:0,p:0,b:0});
   $("list").innerHTML=rows.length?`<table class="tbl"><thead><tr><th>المندوب</th><th>الهاتف</th><th>عدد الأوردرات</th><th>الحمولات</th><th>اللترات</th><th>قيمة المسحوب</th><th>المسدّد</th><th>المتبقي عليه (الإجمالي)</th><th></th></tr></thead><tbody>`+
   rows.map(({r,s})=>`<tr><td><button class="lnk" data-s="${r.id}">${esc(r.name||"(بدون اسم)")}</button>${r.active===false?' <span class="tag done">موقوف</span>':""}</td><td>${esc(r.phone)}</td><td class="num"><b>${s.orders}</b></td><td class="num">${s.loads}</td><td class="num">${f(s.liters,2)}</td><td class="num">${f(s.value,2)}</td><td class="num">${f(s.paid,2)}</td><td class="num"><b>${f(t[r.id],2)}</b></td>
-  <td>${isAdmin?`<button class="btn sm" data-e="${r.id}">تعديل</button>`:""}<button class="btn sm" data-t="${r.id}">${r.active===false?"تفعيل":"إيقاف"}</button><button class="btn sm danger" data-d="${r.id}" data-n="${esc(r.name)}">حذف</button></td></tr>`).join("")+
+  <td>${isAdmin?`<button class="btn sm" data-e="${r.id}">تعديل</button>`:""}<button class="btn sm" data-pdf="${r.id}">PDF</button><button class="btn sm" data-t="${r.id}">${r.active===false?"تفعيل":"إيقاف"}</button><button class="btn sm danger" data-d="${r.id}" data-n="${esc(r.name)}">حذف</button></td></tr>`).join("")+
   `<tr class="tr-total"><td colspan="2">الإجمالي${fr||to?" (للفترة المحددة)":""}</td><td class="num">${tot.o}</td><td class="num">${tot.c}</td><td class="num">${f(tot.l,2)}</td><td class="num">${f(tot.v,2)}</td><td class="num">${f(tot.p,2)}</td><td class="num">${f(tot.b,2)}</td><td></td></tr></tbody></table>
   <p class="soon">الأوردر = فاتورة واحدة (قد تضم عدة حمولات). المسحوب والمسدّد للفترة المحددة، أما "المتبقي عليه" فهو الرصيد الكلي حتى اليوم.</p>`:'<p class="soon">لا يوجد مندوب مطابق.</p>';
   $("list").querySelectorAll("[data-t]").forEach(b=>b.onclick=()=>toggle(b.dataset.t));
   $("list").querySelectorAll("[data-d]").forEach(b=>b.onclick=()=>del(b.dataset.d,b.dataset.n));
   $("list").querySelectorAll("[data-e]").forEach(b=>b.onclick=()=>editRep(b.dataset.e));
+  $("list").querySelectorAll("[data-pdf]").forEach(b=>b.onclick=()=>exportPdf(b.dataset.pdf));
   $("list").querySelectorAll("[data-s]").forEach(b=>b.onclick=()=>{sel=b.dataset.s;showDetail(sel);$("detail").scrollIntoView({behavior:"smooth"})});
   if(q&&rows.length===1)sel=rows[0].r.id;else if(!rows.some(x=>x.r.id===sel))sel="";
   if(sel)showDetail(sel);else $("detail").innerHTML="";
@@ -79,15 +82,35 @@ export async function render(view,{db,user}){
   const pd={},tg={};cache.l.forEach(x=>{if(x.repId===id&&x.type==="payment"&&x.ref){pd[x.ref]=(pd[x.ref]||0)-n(x.amount);const k=[x.accountName,x.method].filter(Boolean).join(" - ");if(k)(tg[x.ref]||(tg[x.ref]=new Set())).add(k)}});
   const TY={payment:"سداد",settlement:"تسوية"},mv=cache.l.filter(x=>x.repId===id&&x.type!=="sale"&&rangeOk(String(x.date),fr,to)).sort((x,y)=>String(y.date).localeCompare(String(x.date)));
   const tbl=(h,rows)=>rows.length?`<div class="tbl-wrap"><table class="tbl"><thead><tr>${h.map(x=>`<th>${x}</th>`).join("")}</tr></thead><tbody>${rows.join("")}</tbody></table></div>`:'<p class="soon">لا توجد حركات في هذه الفترة.</p>';
-  $("detail").innerHTML=`<div class="panel"><h2>تفاصيل المندوب: ${esc(r.name)}</h2><p class="soon">${esc(r.phone)}${fr||to?` | الفترة: ${fr?"من "+esc(fr):""} ${to?"إلى "+esc(to):""}`:" | كل الفترات"}</p>
+  $("detail").innerHTML=`<div class="panel"><div class="page-head"><h2>تفاصيل المندوب: ${esc(r.name)}</h2><button class="btn alt" id="dpdf" type="button">تصدير PDF</button></div><p class="soon">${esc(r.phone)}${fr||to?` | الفترة: ${fr?"من "+esc(fr):""} ${to?"إلى "+esc(to):""}`:" | كل الفترات"}</p>
   <div class="grid"><div class="stat"><b>${st.orders}</b><span>عدد الأوردرات (${st.loads} حمولة)</span></div><div class="stat"><b>${f(st.value,2)}</b><span>المسحوب (${f(st.liters,2)} لتر)</span></div>
   <div class="stat good"><b>${f(st.paid,2)}</b><span>المسدّد في الفترة</span></div><div class="stat bad"><b>${f(state.t[id],2)}</b><span>المتبقي عليه (الإجمالي)</span></div></div>
-  <h3>الحمولات</h3>`+tbl(["التاريخ","الجهة","اللترات","السعر","القيمة","المسدّد","الحساب / الطريقة","المتبقي",...(isAdmin?[""]:[])],
-   S.map(x=>{const p=n(pd[x.id]);return `<tr><td>${esc(x.date)}</td><td>${esc(x.entity)}</td><td class="num">${f(x.liters,2)}</td><td class="num">${f(x.pricePerLiter,2)}</td><td class="num">${f(x.amount,2)}</td><td class="num">${f(p,2)}</td><td>${tg[x.id]?[...tg[x.id]].map(esc).join("، "):""}</td><td class="num"><b>${f(n(x.amount)-p,2)}</b></td>${isAdmin?`<td><button class="btn sm" data-es="${x.id}">تعديل</button></td>`:""}</tr>`}))+
+  <h3>الحمولات</h3>`+tbl(["التاريخ","الفترة","الجهة","اللترات","السعر","القيمة","المسدّد","الحساب / الطريقة","المتبقي",...(isAdmin?[""]:[])],
+   S.map(x=>{const p=n(pd[x.id]);return `<tr><td>${esc(x.date)}</td><td>${esc(state.pn[x.periodId]||x.periodId)}</td><td>${esc(x.entity)}</td><td class="num">${f(x.liters,2)}</td><td class="num">${f(x.pricePerLiter,2)}</td><td class="num">${f(x.amount,2)}</td><td class="num">${f(p,2)}</td><td>${tg[x.id]?[...tg[x.id]].map(esc).join("، "):""}</td><td class="num"><b>${f(n(x.amount)-p,2)}</b></td>${isAdmin?`<td><button class="btn sm" data-es="${x.id}">تعديل</button></td>`:""}</tr>`}))+
   `<h3>السدادات والتسويات</h3>`+tbl(["التاريخ","النوع","المبلغ","الجهة","الحساب","الطريقة","ملحوظة",...(isAdmin?[""]:[])],
    mv.map(x=>`<tr><td>${esc(x.date)}</td><td>${TY[x.type]||esc(x.type)}</td><td class="num">${x.type==="payment"?f(-n(x.amount),2):(n(x.amount)>0?"+":"")+f(x.amount,2)}</td><td>${esc(x.entity)}</td><td>${esc(x.accountName)}</td><td>${esc(x.method)}</td><td>${esc(x.note)}</td>${isAdmin?`<td>${x.type==="payment"?`<button class="btn sm" data-ep="${x.id}">تعديل</button>`:""}</td>`:""}</tr>`))+`</div>`;
   $("detail").querySelectorAll("[data-es]").forEach(b=>b.onclick=()=>editLoad(b.dataset.es));
   $("detail").querySelectorAll("[data-ep]").forEach(b=>b.onclick=()=>editPay(b.dataset.ep));
+  $("dpdf").onclick=()=>exportPdf(id);
+ }
+
+ function exportPdf(id){
+  const r=state.reps.find(x=>x.id===id);if(!r)return;
+  const fr=$("rfr").value,to=$("rto").value,st=stats(id,fr,to);
+  const S=st.S.slice().sort((x,y)=>String(x.date).localeCompare(String(y.date))||(x.lineNo||0)-(y.lineNo||0));
+  const pd={},tg={};cache.l.forEach(x=>{if(x.repId===id&&x.type==="payment"&&x.ref){pd[x.ref]=(pd[x.ref]||0)-n(x.amount);const k=[x.accountName,x.method].filter(Boolean).join(" - ");if(k)(tg[x.ref]||(tg[x.ref]=new Set())).add(k)}});
+  const mv=cache.l.filter(x=>x.repId===id&&x.type!=="sale"&&rangeOk(String(x.date),fr,to)).sort((x,y)=>String(x.date).localeCompare(String(y.date)));
+  const TY={payment:"سداد",settlement:"تسوية"};
+  const sumRem=S.reduce((a,x)=>a+n(x.amount)-n(pd[x.id]),0);
+  const loads=S.map(x=>{const p=n(pd[x.id]);return `<tr><td>${esc(x.date)}</td><td>${esc(state.pn[x.periodId]||x.periodId||"")}</td><td>${esc(x.entity)}</td><td class="num">${f(x.liters,2)}</td><td class="num">${f(x.pricePerLiter,2)}</td><td class="num">${f(x.amount,2)}</td><td class="num">${f(p,2)}</td><td class="num">${f(n(x.amount)-p,2)}</td></tr>`}).join("");
+  const pays=mv.map(x=>`<tr><td>${esc(x.date)}</td><td>${TY[x.type]||esc(x.type)}</td><td class="num">${x.type==="payment"?f(-n(x.amount),2):(n(x.amount)>0?"+":"")+f(x.amount,2)}</td><td>${esc(x.entity)}</td><td>${esc(x.accountName)}</td><td>${esc(x.method)}</td><td>${esc(x.note)}</td></tr>`).join("");
+  const range=fr||to?`${fr?"من "+esc(fr):""} ${to?"إلى "+esc(to):""}`:"كل الفترات";
+  const body=`<div class="hd"><div><h1>${esc(APP_NAME)}</h1><div>كشف حساب مندوب</div></div><div>تاريخ الطباعة: ${localToday()}</div></div>
+  <h2>${esc(r.name)}</h2><div>الهاتف: ${esc(r.phone||"—")} &nbsp;|&nbsp; الفترة الزمنية: ${range}</div>
+  <div class="sum"><div>عدد الأوردرات<b>${st.orders}</b></div><div>اللترات المسحوبة<b>${f(st.liters,2)}</b></div><div>قيمة المسحوب<b>${f(st.value,2)}</b></div><div>المسدّد في الفترة<b>${f(st.paid,2)}</b></div><div>المتبقي عليه (الإجمالي)<b>${f(state.t[id],2)}</b></div></div>
+  <h2>الحمولات</h2>${loads?`<table><thead><tr><th>التاريخ</th><th>الفترة</th><th>الجهة</th><th>اللترات</th><th>السعر</th><th>القيمة</th><th>المسدّد</th><th>المتبقي</th></tr></thead><tbody>${loads}<tr class="tot"><td colspan="3">الإجمالي</td><td class="num">${f(st.liters,2)}</td><td></td><td class="num">${f(st.value,2)}</td><td class="num">${f(S.reduce((a,x)=>a+n(pd[x.id]),0),2)}</td><td class="num">${f(sumRem,2)}</td></tr></tbody></table>`:"<p>لا توجد حمولات.</p>"}
+  <h2>السدادات والتسويات</h2>${pays?`<table><thead><tr><th>التاريخ</th><th>النوع</th><th>المبلغ</th><th>الجهة</th><th>الحساب</th><th>الطريقة</th><th>ملحوظة</th></tr></thead><tbody>${pays}</tbody></table>`:"<p>لا توجد حركات.</p>"}`;
+  printDoc("كشف حساب - "+r.name,body);
  }
  function editLoad(id){const x=cache.s.find(e=>e.id===id);
   openForm({title:"تعديل حمولة",note:"يُعاد حساب المخزون والتكلفة وحساب المندوب تلقائيًا، ويُسجَّل التعديل في سجل العمليات.",
@@ -127,7 +150,7 @@ export async function render(view,{db,user}){
    if(left>0.005){$("er").textContent=`المبلغ أكبر من إجمالي المتبقي على المندوب (${f(open.reduce((x,s)=>x+s.rem,0),2)}).`;return}}
   try{const b=writeBatch(db),rn=$("ps").selectedOptions[0].text,acc=$("pc");
    const info={repName:rn,accountId:acc.value,accountName:acc.value?acc.selectedOptions[0].text:"",method:$("pm").value,note:$("pn").value.trim()};
-   for(const {s,amt} of targets){const rec={accountType:"rep",repId,type:"payment",amount:-amt,ref:s.id,entity:s.entity||"",...info,date,periodId:date.slice(0,7),createdBy:user.uid};
+   for(const {s,amt} of targets){const rec={accountType:"rep",repId,type:"payment",amount:-amt,ref:s.id,entity:s.entity||"",...info,date,periodId:s.periodId||date.slice(0,7),createdBy:user.uid};
     const lr=doc(collection(db,"ledger"));b.set(lr,{...rec,createdAt:serverTimestamp()});audit(b,"سداد مندوب","ledger",lr.id,rec)}
    await b.commit();$("ok").textContent="تم تسجيل السداد.";$("pa").value="";$("pn").value="";load()}catch(e){fail(e)}};
  load().catch(e=>{$("list").textContent="تعذّر التحميل: "+e.message});

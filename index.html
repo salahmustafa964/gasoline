@@ -7,17 +7,21 @@
 <body><div class="shell" id="shell">
 <aside class="side"><h2 id="app"></h2><nav id="nav"></nav></aside>
 <main class="main">
- <div class="top"><div class="lead"><button class="tgl" id="tgl" type="button" aria-expanded="true" aria-label="إخفاء القائمة" title="إخفاء / إظهار القائمة"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button><div class="date" id="today"></div></div><div><span class="who" id="who"></span> <button class="btn ghost" id="out">خروج</button></div></div>
+ <div class="top"><div class="lead"><button class="tgl" id="tgl" type="button" aria-expanded="true" aria-label="إخفاء القائمة" title="إخفاء / إظهار القائمة"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button><div class="date" id="today"></div></div><div class="pbar" id="pbar" hidden><label for="per">الفترة</label><select id="per"></select><button class="btn sm alt" id="padd" type="button">+ فترة جديدة</button></div>
+ <div><span class="who" id="who"></span> <button class="btn ghost" id="out">خروج</button></div></div>
+ <div class="lockbar" id="lockbar" hidden>هذه الفترة مقفلة: عرض فقط، ولا تقبل أي حركة أو تعديل.</div>
  <section id="view"></section>
 </main></div>
 <script type="module">
 import {initializeApp} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import {getAuth,onAuthStateChanged,signOut} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import {getFirestore,doc,getDoc} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import {getFirestore,doc,getDoc,getDocs,collection,writeBatch,serverTimestamp} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import {firebaseConfig,APP_NAME} from "./firebase-config.js";
+import {openForm} from "./js/dlg.js";
 const app=initializeApp(firebaseConfig),auth=getAuth(app),db=getFirestore(app);
 const PAGES=[
  ["dashboard","الرئيسية",["admin","accountant"]],
+ ["periods","الفترات",["admin","accountant"]],
  ["sales","المبيعات",["admin","accountant","rep"]],
  ["reps","المناديب",["admin","accountant"]],
  ["accounts","حسابات الاستلام",["admin","accountant"]],
@@ -41,12 +45,42 @@ onAuthStateChanged(auth,async u=>{
  if(!s.exists()){view.innerHTML='<div class="panel">حسابك غير مفعّل بعد. اطلب من المدير إضافتك للنظام.</div>';return}
  const d=s.data();who.textContent=d.name+" ("+ROLE[d.role]+")";
  const allowed=PAGES.filter(p=>p[2].includes(d.role));
- const BUILT=["dashboard","purchases","reps","sales","accounts","inventory","settlement","expenses","reports","audit"];
+ const BUILT=["dashboard","purchases","reps","sales","accounts","inventory","settlement","expenses","reports","audit","periods"];
  BUILT.forEach(k=>{if(allowed.some(p=>p[0]===k))import(`./js/${k}.js`).catch(()=>{})});
+
+ const isStaff=["admin","accountant"].includes(d.role),PP=["dashboard","sales","purchases","inventory","settlement","expenses","reports"];
+ const E=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+ let periods=[],cur=null;
+ const per=document.getElementById("per"),pbar=document.getElementById("pbar"),lockbar=document.getElementById("lockbar"),padd=document.getElementById("padd");
+ const fillBar=()=>{pbar.hidden=!isStaff;lockbar.hidden=!(cur&&cur.closed);padd.hidden=d.role!=="admin";
+  per.innerHTML=periods.length?periods.map(p=>`<option value="${E(p.id)}"${cur&&p.id===cur.id?" selected":""}>${E(p.name)}${p.closed?" (مقفلة)":""}</option>`).join(""):'<option value="">لا توجد فترة</option>'};
+ const loadPeriods=async()=>{if(!isStaff)return;
+  const sn=await getDocs(collection(db,"periods"));
+  periods=sn.docs.map(x=>({id:x.id,...x.data(),name:x.data().name||x.id})).sort((a,b)=>((b.createdAt&&b.createdAt.seconds)||0)-((a.createdAt&&a.createdAt.seconds)||0)||String(b.id).localeCompare(String(a.id)));
+  let id="";try{id=localStorage.getItem("pid")||""}catch{}
+  cur=periods.find(p=>p.id===id)||periods.find(p=>!p.closed)||periods[0]||null;fillBar()};
+ const setCur=id=>{const p=periods.find(x=>x.id===id);if(!p)return;cur=p;try{localStorage.setItem("pid",p.id)}catch{}fillBar()};
+ per.onchange=()=>{setCur(per.value);go()};
+ padd.onclick=()=>openForm({title:"فترة جديدة",note:"تبدأ الفترة الجديدة بشاشات فارغة: المبيعات والمشتريات والمخزون والتسويات والمصروفات والتقارير. المناديب وحسابات الاستلام تبقى كما هي.",
+  fields:[{k:"name",label:"اسم الفترة",req:1},{k:"start",label:"تاريخ البداية",type:"date",req:1}],
+  values:{name:"الفترة "+(periods.length+1),start:new Date(Date.now()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,10)},submit:"إنشاء الفترة",
+  onSubmit:async v=>{const id=doc(collection(db,"periods")).id,b=writeBatch(db);
+   b.set(doc(db,"periods",id),{name:v.name.trim(),startDate:v.start,closed:false,createdBy:u.uid,createdAt:serverTimestamp()});
+   b.set(doc(collection(db,"auditLog")),{userId:u.uid,userName:d.name,action:"إنشاء فترة",collection:"periods",docId:id,after:{name:v.name.trim(),date:v.start},createdAt:serverTimestamp()});
+   await b.commit();try{localStorage.setItem("pid",id)}catch{}await loadPeriods();go()}});
+ if(window.__sp)removeEventListener("setperiod",window.__sp);
+ window.__sp=e=>{setCur(e.detail);go()};addEventListener("setperiod",window.__sp);
+ if(window.__pc)removeEventListener("periodschanged",window.__pc);
+ window.__pc=async()=>{await loadPeriods();go()};addEventListener("periodschanged",window.__pc);
  const go=async()=>{const k=location.hash.slice(1)||allowed[0][0];
   nav.innerHTML=allowed.map(p=>`<a href="#${p[0]}" class="${p[0]===k?"on":""}">${p[1]}</a>`).join("");
   const p=allowed.find(x=>x[0]===k)||allowed[0];
-  if(BUILT.includes(p[0])){view.innerHTML="";const m=await import(`./js/${p[0]}.js`);await m.render(view,{db,auth,user:{uid:u.uid,name:d.name,role:d.role,repId:d.repId||""}});return}
+  if(BUILT.includes(p[0])){
+   if(PP.includes(p[0])&&isStaff&&!cur){view.innerHTML='<div class="panel"><h2>لا توجد فترة</h2><p class="soon">أنشئ أول فترة من زر "+ فترة جديدة" أعلى الصفحة (للمدير)، ثم ابدأ بتسجيل الشحنة.</p></div>';return}
+   const box=document.createElement("div");view.replaceChildren(box);
+   try{const m=await import(`./js/${p[0]}.js`);if(view.firstChild!==box)return;await m.render(box,{db,auth,user:{uid:u.uid,name:d.name,role:d.role,repId:d.repId||""},period:cur})}
+   catch(e){box.innerHTML='<div class="panel"><div class="err">تعذّر تحميل الصفحة: '+String(e.message).replace(/</g,"&lt;")+'</div></div>'}
+   return}
   view.innerHTML=p[0]==="dashboard"?
   `<div class="grid"><div class="stat fuel"><b>— لتر</b><span>المخزون الحالي</span></div>
    <div class="stat"><b>—</b><span>مبيعات اليوم</span></div>
@@ -54,6 +88,7 @@ onAuthStateChanged(auth,async u=>{
    <div class="stat good"><b>—</b><span>ربح الشهر</span></div></div>
    <div class="panel soon">الأرقام تظهر بعد بناء صفحة المبيعات.</div>`:
   `<div class="panel"><h2>${p[1]}</h2><p class="soon">هذه الصفحة تُبنى في الخطوات القادمة.</p></div>`};
- addEventListener("hashchange",go);go();
+ await loadPeriods();
+ if(window.__go)removeEventListener("hashchange",window.__go);window.__go=go;addEventListener("hashchange",go);go();
 });
 </script></body></html>

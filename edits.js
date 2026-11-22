@@ -10,10 +10,12 @@ export async function editSale(db,user,saleId,v){
  const date=v.date,L=n(v.liters),P=n(v.price),entity=(v.entity||"").trim();
  if(!date)throw new Error("أدخل التاريخ.");
  if(!(L>0)||!(P>0))throw new Error("أدخل كمية وسعرًا أكبر من صفر.");
- const [al,mv,le,pu]=await Promise.all([q1(db,"saleAllocations","saleId",saleId),q1(db,"stockMovements","ref",saleId),q1(db,"ledger","ref",saleId),getDocs(collection(db,"purchases"))]);
+ const s0=await getDoc(doc(db,"sales",saleId));if(!s0.exists())throw new Error("الحمولة غير موجودة.");
+ const periodId=s0.data().periodId;
+ const [al,mv,le,pu]=await Promise.all([q1(db,"saleAllocations","saleId",saleId),q1(db,"stockMovements","ref",saleId),q1(db,"ledger","ref",saleId),getDocs(query(collection(db,"purchases"),where("periodId","==",periodId)))]);
  const oldB=new Set(al.docs.map(d=>d.data().batchId));
  const ids=pu.docs.filter(d=>String(d.data().date)<=date||oldB.has(d.id)).map(d=>d.id);
- const periodId=date.slice(0,7),amount=L*P;
+ const amount=L*P;
  await runTransaction(db,async tx=>{
   const sref=doc(db,"sales",saleId),ss=await tx.get(sref);
   if(!ss.exists())throw new Error("الحمولة غير موجودة.");
@@ -51,7 +53,7 @@ export async function editPayment(db,user,id,v,accName){
   const [ss,ls]=await Promise.all([getDoc(doc(db,"sales",old.ref)),q1(db,"ledger","ref",old.ref)]);
   if(ss.exists()){const others=ls.docs.filter(d=>d.id!==id&&d.data().type==="payment").reduce((t,d)=>t-n(d.data().amount),0);
    if(others+a>n(ss.data().amount)+0.005)throw new Error(`المبلغ أكبر من المتبقي على الحمولة (${r2(n(ss.data().amount)-others)}).`)}}
- const nw={date,periodId:date.slice(0,7),amount:-a,accountId:v.accountId||"",accountName:v.accountId?accName:"",method:v.method||"",note:(v.note||"").trim()};
+ const nw={date,amount:-a,accountId:v.accountId||"",accountName:v.accountId?accName:"",method:v.method||"",note:(v.note||"").trim()};
  const b=writeBatch(db);
  b.update(ref,{...nw,updatedBy:user.uid,updatedAt:serverTimestamp()});
  b.set(doc(collection(db,"auditLog")),aud(user,"تعديل سداد","ledger",id,{date:old.date,amount:-n(old.amount),accountName:old.accountName||"",method:old.method||"",note:old.note||"",repName:old.repName||""},{date,amount:a,accountName:nw.accountName,method:nw.method,note:nw.note,repName:old.repName||""}));
@@ -78,9 +80,9 @@ export async function editPurchase(db,user,id,v){
    al.docs.forEach(d=>{const x=d.data();if(costs[x.saleId]!=null)costs[x.saleId]+=n(x.liters)*(P-n(x.unitCost));tx.update(d.ref,{unitCost:P})});
    Object.entries(costs).forEach(([sid,c])=>tx.update(doc(db,"sales",sid),{costTotal:c}));
   }
-  tx.update(pref,{date,periodId:date.slice(0,7),supplierName:sup,liters:L,pricePerLiter:P,unitCost:P,transport:tr,stateFee:sf,otherCost:ot,purchaseTotal:L*P,extrasTotal:tr+sf+ot,remainingLiters:rem,finishedDate:rem<=0?(p.finishedDate||date):deleteField(),updatedBy:user.uid,updatedAt:serverTimestamp()});
+  tx.update(pref,{date,supplierName:sup,liters:L,pricePerLiter:P,unitCost:P,transport:tr,stateFee:sf,otherCost:ot,purchaseTotal:L*P,extrasTotal:tr+sf+ot,remainingLiters:rem,finishedDate:rem<=0?(p.finishedDate||date):deleteField(),updatedBy:user.uid,updatedAt:serverTimestamp()});
   const m=mv.docs.find(d=>d.data().type==="purchase");
-  if(m)tx.update(m.ref,{date,periodId:date.slice(0,7),liters:L});else tx.set(doc(collection(db,"stockMovements")),{date,periodId:date.slice(0,7),type:"purchase",liters:L,ref:id,createdBy:user.uid,createdAt:serverTimestamp()});
+  if(m)tx.update(m.ref,{date,liters:L});else tx.set(doc(collection(db,"stockMovements")),{date,periodId:p.periodId,type:"purchase",liters:L,ref:id,createdBy:user.uid,createdAt:serverTimestamp()});
   tx.set(doc(collection(db,"auditLog")),aud(user,"تعديل شحنة","purchases",id,
    {date:p.date,supplierName:p.supplierName,liters:p.liters,pricePerLiter:p.pricePerLiter,transport:p.transport,stateFee:p.stateFee,otherCost:p.otherCost},
    {date,supplierName:sup,liters:L,pricePerLiter:P,transport:tr,stateFee:sf,otherCost:ot}));
