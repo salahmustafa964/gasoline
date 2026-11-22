@@ -1,9 +1,9 @@
-import {openForm,fe} from "./dlg.js";
-import {editSale} from "./edits.js";
+import {openForm,fe} from "./dlg.js?v=16";
+import {editSale} from "./edits.js?v=16";
 import {collection,doc,runTransaction,serverTimestamp,query,orderBy,limit,getDocs,where} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import {n,f,esc,localToday} from "./util.js";
-export async function render(view,{db,user}){
- const canWrite=user.role!=="rep",isAdmin=user.role==="admin";
+import {n,f,esc,localToday} from "./util.js?v=16";
+export async function render(view,{db,user,period}){
+ const canWrite=user.role!=="rep",isAdmin=user.role==="admin",P=period?period.id:"",closed=!!(period&&period.closed);
  view.innerHTML=(canWrite?`
  <div class="panel"><h2>فاتورة بيع لمندوب</h2><form id="sf"><div class="form-grid">
   <div><label>التاريخ</label><input id="date" type="date" required value="${localToday()}"></div>
@@ -15,8 +15,9 @@ export async function render(view,{db,user}){
   <div class="err" id="er" role="alert"></div><div class="ok" id="ok"></div></form></div>`:"")+
  `<div class="panel"><h2>آخر المبيعات</h2><div class="tbl-wrap" id="list">جارٍ التحميل...</div></div>`;
  const $=id=>view.querySelector("#"+id);
+ if(closed&&canWrite){$("sf").hidden=true;$("sf").insertAdjacentHTML("beforebegin",'<p class="soon">هذه الفترة مقفلة ولا تقبل مبيعات جديدة.</p>')}
  let bal=0,accs=[],repMap={};
- const salesQ=()=>Promise.all([getDocs(canWrite?query(collection(db,"sales"),orderBy("date","desc"),limit(60)):query(collection(db,"sales"),where("repId","==",user.repId||"-"),limit(200))),canWrite?getDocs(query(collection(db,"ledger"),limit(5000))):Promise.resolve(null)]);
+ const salesQ=()=>Promise.all([getDocs(canWrite?query(collection(db,"sales"),where("periodId","==",P),limit(1000)):query(collection(db,"sales"),where("repId","==",user.repId||"-"),limit(200))),canWrite?getDocs(query(collection(db,"ledger"),where("periodId","==",P),limit(5000))):Promise.resolve(null)]);
  const pFirst=salesQ(),pRA=canWrite?Promise.all([getDocs(collection(db,"reps")),getDocs(collection(db,"accounts"))]):null;
  const q=(el,c)=>el.querySelector("."+c);
  const read=()=>[...view.querySelectorAll(".line")].map(el=>{const L=n(q(el,"li").value),P=n(q(el,"pr").value),paid=n(q(el,"pd").value),a=q(el,"ac");
@@ -44,7 +45,7 @@ export async function render(view,{db,user}){
   if(s.empty){$("list").innerHTML='<p class="soon">لا توجد مبيعات بعد.</p>';return}
   const pay={};if(ls)ls.forEach(d=>{const x=d.data();if(x.type==="payment"&&x.ref){const p=pay[x.ref]||(pay[x.ref]={sum:0,tags:new Set()});p.sum-=n(x.amount);const t=[x.accountName,x.method].filter(Boolean).join(" - ");if(t)p.tags.add(t)}});
   $("list").innerHTML=`<table class="tbl"><thead><tr><th>التاريخ</th><th>المندوب</th><th>الجهة</th><th>اللترات</th><th>السعر</th><th>القيمة</th><th>المسدّد</th><th>الحساب / الطريقة</th><th>المتبقي</th>${canWrite?"<th>الربح (قبل الترحيل والرسوم)</th>":""}${isAdmin?"<th></th>":""}</tr></thead><tbody>`+
-  [...s.docs].sort((a,b)=>String(b.data().date).localeCompare(String(a.data().date))).slice(0,60).map(d=>{const x=d.data(),p=pay[d.id],paid=p?p.sum:n(x.paid),tags=p?[...p.tags].map(esc).join("، "):esc(x.paidAccountName);
+  [...s.docs].sort((a,b)=>String(b.data().date).localeCompare(String(a.data().date))).slice(0,300).map(d=>{const x=d.data(),p=pay[d.id],paid=p?p.sum:n(x.paid),tags=p?[...p.tags].map(esc).join("، "):esc(x.paidAccountName);
    return `<tr><td>${esc(x.date)}</td><td>${esc(repMap[x.repId]||x.repName)}</td><td>${esc(x.entity)}</td><td class="num">${f(x.liters)}</td><td class="num">${f(x.pricePerLiter,2)}</td><td class="num">${f(x.amount,2)}</td><td class="num">${f(paid,2)}</td><td>${tags}</td><td class="num">${f(n(x.amount)-paid,2)}</td>${canWrite?`<td class="num">${f(n(x.amount)-n(x.costTotal),2)}</td>`:""}${isAdmin?`<td><button class="btn sm" data-e="${d.id}">تعديل</button></td>`:""}</tr>`}).join("")+"</tbody></table>";
   if(isAdmin)$("list").querySelectorAll("[data-e]").forEach(b=>b.onclick=()=>{const id=b.dataset.e,x=s.docs.find(d=>d.id===id).data();
    openForm({title:"تعديل حمولة",note:"يُعاد حساب المخزون والتكلفة وحساب المندوب تلقائيًا، ويُسجَّل التعديل في سجل العمليات.",
@@ -60,14 +61,14 @@ export async function render(view,{db,user}){
    $("rep").innerHTML=reps.map(r=>`<option value="${r.id}">${esc(r.name)}</option>`).join("");
    $("rep").onchange=repBal;$("add").onclick=addLine;addLine();repBal();
    $("sf").onsubmit=async ev=>{ev.preventDefault();$("er").textContent="";$("ok").textContent="";
-    const date=$("date").value,periodId=date.slice(0,7),repId=$("rep").value,repName=reps.find(r=>r.id===repId).name,lines=read();
+    const date=$("date").value,periodId=P,repId=$("rep").value,repName=reps.find(r=>r.id===repId).name,lines=read();
     for(const l of lines){
      if(!(l.L>0)||!(l.P>0)){$("er").textContent="في كل حمولة: أدخل كمية وسعرًا أكبر من صفر.";return}
      if(l.paid>l.amount){$("er").textContent="سداد إحدى الحمولات أكبر من قيمتها. سجّل الزيادة كسداد من صفحة المناديب.";return}
      }
     try{
-     const ps=await getDocs(query(collection(db,"purchases"),where("remainingLiters",">",0)));
-     const cand=ps.docs.filter(d=>d.data().date<=date).sort((a,b)=>a.data().date.localeCompare(b.data().date)||(a.data().createdAt?.seconds||0)-(b.data().createdAt?.seconds||0));
+     const ps=await getDocs(query(collection(db,"purchases"),where("periodId","==",P)));
+     const cand=ps.docs.filter(d=>d.data().date<=date&&n(d.data().remainingLiters)>0).sort((a,b)=>a.data().date.localeCompare(b.data().date)||(a.data().createdAt?.seconds||0)-(b.data().createdAt?.seconds||0));
      const invoiceId=doc(collection(db,"sales")).id,res=[];
      await runTransaction(db,async tx=>{
       const pool=[];for(const c of cand){const s=await tx.get(doc(db,"purchases",c.id)),x=s.data(),rem=n(x.remainingLiters);if(rem>0)pool.push({id:s.id,rem,used:0,uc:n(x.unitCost??x.pricePerLiter)})}

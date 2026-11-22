@@ -1,9 +1,9 @@
 import {collection,doc,writeBatch,runTransaction,serverTimestamp,getDocs,query,orderBy,limit,where,deleteField} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import {n,f,esc,localToday} from "./util.js";
+import {n,f,esc,localToday} from "./util.js?v=16";
 const T={quantity:"فرق كمية",rep:"رصيد مندوب",cost:"فرق تكلفة شحنة"},ST={draft:"مسودة",approved:"معتمدة",rejected:"مرفوضة"};
 const r3=x=>Math.round(x*1000)/1000,r2=x=>Math.round(x*100)/100;
-export async function render(view,{db,user}){
- const isAdmin=user.role==="admin";
+export async function render(view,{db,user,period}){
+ const isAdmin=user.role==="admin",P=period.id;
  view.innerHTML=`<div class="panel"><h2>تسوية جديدة</h2><p class="soon">كل تسوية تُحفظ كمسودة ولا تؤثر على المخزون أو الحسابات أو الأرباح إلا بعد اعتماد المدير.</p>
  <form id="sf"><div class="form-grid"><div><label>نوع التسوية</label><select id="ty"><option value="quantity">فرق كمية (جرد)</option><option value="rep">رصيد مندوب</option><option value="cost">فرق تكلفة شحنة</option></select></div>
  <div><label>التاريخ</label><input id="dt" type="date" required value="${localToday()}"></div></div>
@@ -11,7 +11,8 @@ export async function render(view,{db,user}){
  <button class="btn" style="margin-top:1rem">حفظ كمسودة</button><div class="err" id="er" role="alert"></div><div class="ok" id="ok"></div></form></div>
  <div class="panel"><h2>التسويات</h2><div class="tbl-wrap" id="list">جارٍ التحميل...</div></div>`;
  const $=id=>view.querySelector("#"+id);
- const [ps,rs,st0]=await Promise.all([getDocs(collection(db,"purchases")),getDocs(collection(db,"reps")),getDocs(query(collection(db,"settlements"),orderBy("date","desc"),limit(60)))]);
+ if(period.closed){$("sf").hidden=true;$("sf").insertAdjacentHTML("beforebegin",'<p class="soon">هذه الفترة مقفلة ولا تقبل تسويات جديدة.</p>')}
+ const [ps,rs,st0]=await Promise.all([getDocs(query(collection(db,"purchases"),where("periodId","==",P))),getDocs(collection(db,"reps")),getDocs(query(collection(db,"settlements"),where("periodId","==",P),limit(300)))]);
  const batches=ps.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>String(b.date).localeCompare(String(a.date)));
  const reps=rs.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>String(a.name||"").localeCompare(String(b.name||""),"ar"));
  const book=batches.reduce((a,b)=>a+n(b.remainingLiters),0);
@@ -41,7 +42,7 @@ export async function render(view,{db,user}){
  const fail=e=>{const m=e.message||"";$("er").textContent=m.startsWith("STOCK:")?`المتاح للخصم بتاريخ التسوية ${m.slice(6)} لتر فقط.`:m==="STATUS"?"هذه التسوية لم تعد مسودة.":/permission/i.test(m)?"تعذّر التنفيذ: الفترة مقفلة أو ليست لديك صلاحية.":"تعذّر التنفيذ: "+m};
  const audit=(b,action,id,after)=>b.set(doc(collection(db,"auditLog")),{userId:user.uid,userName:user.name,action,collection:"settlements",docId:id,after,createdAt:serverTimestamp()});
  $("sf").onsubmit=async ev=>{ev.preventDefault();$("er").textContent="";$("ok").textContent="";
-  const type=$("ty").value,date=$("dt").value,rec={type,date,periodId:date.slice(0,7),status:"draft",reason:$("rs").value.trim(),createdBy:user.uid};
+  const type=$("ty").value,date=$("dt").value,rec={type,date,periodId:P,status:"draft",reason:$("rs").value.trim(),createdBy:user.uid};
   if(type==="quantity"){const d=qdiff(),c=$("qm").value==="count"?n($("cl").value):r3(book+d);if(Math.abs(d)<0.0005){$("er").textContent="لا يوجد فرق. أدخل كمية أو غيّر طريقة الإدخال.";return}
    Object.assign(rec,{bookLiters:book,countedLiters:c,diff:d,chargeRepId:d<0?$("ch").value:"",chargeRepName:d<0&&$("ch").value?$("ch").selectedOptions[0].text:"",surplusBatchId:d>0?$("sb").value:""});
    if(d>0&&!rec.surplusBatchId){$("er").textContent="اختر الشحنة التي تُضاف إليها الزيادة. إن لم توجد شحنات أضف شحنة أولًا.";return}}
@@ -55,8 +56,8 @@ export async function render(view,{db,user}){
   const sref=doc(db,"settlements",s.id),base={date:s.date,periodId:s.periodId,createdBy:user.uid,createdAt:serverTimestamp()};
   try{
    let cand=[];
-   if(s.type==="quantity"&&s.diff<0){const q=await getDocs(query(collection(db,"purchases"),where("remainingLiters",">",0)));
-    cand=q.docs.filter(d=>d.data().date<=s.date).sort((a,b)=>a.data().date.localeCompare(b.data().date)||(a.data().createdAt?.seconds||0)-(b.data().createdAt?.seconds||0))}
+   if(s.type==="quantity"&&s.diff<0){const q=await getDocs(query(collection(db,"purchases"),where("periodId","==",s.periodId)));
+    cand=q.docs.filter(d=>d.data().date<=s.date&&n(d.data().remainingLiters)>0).sort((a,b)=>a.data().date.localeCompare(b.data().date)||(a.data().createdAt?.seconds||0)-(b.data().createdAt?.seconds||0))}
    await runTransaction(db,async tx=>{
     const cur=await tx.get(sref);if(cur.data().status!=="draft")throw new Error("STATUS");
     const upd={status:"approved",approvedBy:user.uid,approvedAt:serverTimestamp()};
@@ -84,9 +85,9 @@ export async function render(view,{db,user}){
   s.type==="rep"?`${s.amount>0?"زيادة":"تخفيض"} ${f(Math.abs(s.amount),2)} - ${esc(s.repName)}`:
   `شحنة ${esc(s.batchLabel)}: ترحيل ${f(s.dTransport,2)}، رسوم ${f(s.dStateFee,2)}، أخرى ${f(s.dOther,2)}`;
  async function load(pre){
-  const q=pre||await getDocs(query(collection(db,"settlements"),orderBy("date","desc"),limit(60)));
+  const q=pre||await getDocs(query(collection(db,"settlements"),where("periodId","==",P),limit(300)));
   if(q.empty){$("list").innerHTML='<p class="soon">لا توجد تسويات بعد.</p>';return}
-  const arr=q.docs.map(d=>({id:d.id,...d.data()}));
+  const arr=q.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>String(b.date).localeCompare(String(a.date)));
   $("list").innerHTML=`<table class="tbl"><thead><tr><th>التاريخ</th><th>النوع</th><th>التفاصيل</th><th>السبب</th><th>الحالة</th><th></th></tr></thead><tbody>`+
   arr.map(s=>`<tr><td>${esc(s.date)}</td><td>${T[s.type]}</td><td>${det(s)}</td><td>${esc(s.reason)}</td><td><span class="tag${s.status==="draft"?"":" done"}">${ST[s.status]}</span></td>
   <td>${s.status==="draft"?(isAdmin?`<button class="btn sm" data-a="${s.id}">اعتماد</button><button class="btn sm danger" data-r="${s.id}">رفض</button>`:'<span class="soon">بانتظار المدير</span>'):""}</td></tr>`).join("")+"</tbody></table>";

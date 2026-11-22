@@ -1,13 +1,13 @@
-import {openForm,fe} from "./dlg.js";
-import {collection,doc,writeBatch,serverTimestamp,getDocs,query,orderBy,limit} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import {n,f,esc,localToday} from "./util.js";
+import {openForm,fe} from "./dlg.js?v=16";
+import {collection,doc,writeBatch,serverTimestamp,getDocs,query,orderBy,limit,where} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import {n,f,esc,localToday} from "./util.js?v=16";
 const CATS=["إيجار","رواتب وأجور","وقود وتنقلات","صيانة","اتصالات وإنترنت","رسوم حكومية","أخرى"];
-export async function render(view,{db,user}){
- const isAdmin=user.role==="admin",t=localToday();
+export async function render(view,{db,user,period}){
+ const isAdmin=user.role==="admin",t=localToday(),P=period.id;
  view.innerHTML=`
  <div class="page-head"><h2>المصروفات الإضافية</h2><button class="btn alt" id="addb">+ إضافة مصروف</button></div>
- <div class="panel"><div class="form-grid"><div><label>من تاريخ</label><input id="fr" type="date" value="${t.slice(0,7)}-01"></div>
-  <div><label>إلى تاريخ</label><input id="to" type="date" value="${t}"></div></div></div>
+ <div class="panel"><div class="form-grid"><div><label>من تاريخ</label><input id="fr" type="date" value="${period.startDate||""}"></div>
+  <div><label>إلى تاريخ</label><input id="to" type="date" value=""></div></div></div>
  <div id="ok" class="ok"></div><div id="er" class="err" role="alert"></div>
  <div id="out">جارٍ التحميل...</div>
  <dialog id="dlg"><form id="ef"><h3>إضافة مصروف</h3><p class="soon">يُخصم من صافي الربح في تاريخ المصروف.</p>
@@ -18,10 +18,11 @@ export async function render(view,{db,user}){
   <div class="err" id="xe" role="alert"></div>
   <div class="dlg-actions"><button class="btn" type="submit">حفظ المصروف</button><button class="btn ghost" type="button" id="xc2">إلغاء</button></div></form></dialog>`;
  const $=id=>view.querySelector("#"+id);
+ if(period.closed)$("addb").hidden=true;
  let list=[];
- const fetchAll=async()=>{const s=await getDocs(query(collection(db,"expenses"),orderBy("date","desc"),limit(1000)));list=s.docs.map(d=>({id:d.id,...d.data()}))};
+ const fetchAll=async()=>{const s=await getDocs(query(collection(db,"expenses"),where("periodId","==",P),limit(1000)));list=s.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>String(b.date).localeCompare(String(a.date)))};
  function draw(){
-  const fr=$("fr").value,to=$("to").value,r=list.filter(x=>x.date>=fr&&x.date<=to),live=r.filter(x=>!x.voided);
+  const fr=$("fr").value,to=$("to").value,r=list.filter(x=>(!fr||x.date>=fr)&&(!to||x.date<=to)),live=r.filter(x=>!x.voided);
   const total=live.reduce((a,x)=>a+n(x.amount),0),by={};live.forEach(x=>by[x.category]=(by[x.category]||0)+n(x.amount));
   const cats=Object.entries(by).sort((a,b)=>b[1]-a[1]),max=cats.length?cats[0][1]:1;
   $("out").innerHTML=`<div class="panel"><div class="grid"><div class="stat bad"><b>${f(total,2)}</b><span>إجمالي المصروفات في الفترة</span></div>
@@ -43,7 +44,7 @@ export async function render(view,{db,user}){
   openForm({title:"تعديل مصروف",fields:[{k:"date",label:"التاريخ",type:"date",req:1},{k:"category",label:"البند",type:"select",options:CATS.map(c=>({v:c,t:c}))},{k:"description",label:"الوصف"},{k:"amount",label:"المبلغ",type:"number",req:1}],
    values:{date:x.date,category:x.category,description:x.description,amount:x.amount},
    onSubmit:async v=>{const a=n(v.amount);if(!(a>0))throw new Error("أدخل مبلغًا أكبر من صفر.");if(v.category==="أخرى"&&!v.description.trim())throw new Error("اكتب وصفًا عند اختيار «أخرى».");
-    try{const b=writeBatch(db),nw={date:v.date,periodId:v.date.slice(0,7),category:v.category,description:v.description.trim(),amount:a};
+    try{const b=writeBatch(db),nw={date:v.date,category:v.category,description:v.description.trim(),amount:a};
      b.update(doc(db,"expenses",id),{...nw,updatedBy:user.uid,updatedAt:serverTimestamp()});
      b.set(doc(collection(db,"auditLog")),{userId:user.uid,userName:user.name,action:"تعديل مصروف",collection:"expenses",docId:id,before:{date:x.date,type:x.category,note:x.description,amount:x.amount},after:{date:nw.date,type:nw.category,note:nw.description,amount:a},createdAt:serverTimestamp()});
      await b.commit()}catch(e){throw new Error(fe(e))}
@@ -54,7 +55,7 @@ export async function render(view,{db,user}){
   const date=$("xd").value,cat=$("xc").value,desc=$("xn").value.trim(),a=n($("xa").value);
   if(!(a>0)){$("xe").textContent="أدخل مبلغًا أكبر من صفر.";return}
   if(cat==="أخرى"&&!desc){$("xe").textContent="اكتب وصفًا للمصروف عند اختيار «أخرى».";return}
-  try{const id=doc(collection(db,"expenses")).id,rec={date,periodId:date.slice(0,7),category:cat,description:desc,amount:a,voided:false,createdBy:user.uid,createdByName:user.name},b=writeBatch(db);
+  try{const id=doc(collection(db,"expenses")).id,rec={date,periodId:P,category:cat,description:desc,amount:a,voided:false,createdBy:user.uid,createdByName:user.name},b=writeBatch(db);
    b.set(doc(db,"expenses",id),{...rec,createdAt:serverTimestamp()});audit(b,"إضافة مصروف",id,{date,type:cat,amount:a,note:desc});await b.commit();
    $("dlg").close();$("ef").reset();$("xd").value=localToday();await fetchAll();draw();$("ok").textContent="تم حفظ المصروف.";
   }catch(e){$("xe").textContent=/permission/i.test(e.message)?"تعذّر الحفظ: الفترة مقفلة أو ليست لديك صلاحية.":"تعذّر الحفظ: "+e.message}};

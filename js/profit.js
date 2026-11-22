@@ -1,8 +1,8 @@
-import {collection,getDocs,query,limit} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import {n} from "./util.js";
-export async function loadAll(db){
+import {collection,getDocs,query,where,limit} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import {n} from "./util.js?v=16";
+export async function loadAll(db,P){
  const names=["sales","purchases","settlements","saleAllocations","ledger","expenses"];
- const r=await Promise.all(names.map(c=>getDocs(query(collection(db,c),limit(5000)))));
+ const r=await Promise.all(names.map(c=>getDocs(query(collection(db,c),where("periodId","==",P),limit(5000)))));
  const m=r.map(s=>s.docs.map(d=>({id:d.id,...d.data()})));
  return {sales:m[0],purchases:m[1],settlements:m[2],allocs:m[3],ledger:m[4],expenses:m[5]};
 }
@@ -17,7 +17,7 @@ export function batchStats(D){
  return Object.values(st);
 }
 export function periodProfit(D,from,to){
- const inR=d=>d>=from&&d<=to;
+ const inR=d=>(!from||d>=from)&&(!to||d<=to);
  const sales=D.sales.filter(s=>inR(s.date));
  const revenue=sales.reduce((a,s)=>a+n(s.amount),0),cost=sales.reduce((a,s)=>a+n(s.costTotal),0),liters=sales.reduce((a,s)=>a+n(s.liters),0);
  const stats=batchStats(D);
