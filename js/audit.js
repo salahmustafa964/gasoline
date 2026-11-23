@@ -1,5 +1,5 @@
 import {collection,getDocs,query,orderBy,limit} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import {esc} from "./util.js?v=16";
+import {esc} from "./util.js?v=18";
 const L={date:"التاريخ",liters:"اللترات",repName:"المندوب",amount:"المبلغ",name:"الاسم",supplierName:"المورد",pricePerLiter:"السعر",reason:"السبب",type:"النوع",entity:"الجهة",method:"الطريقة",note:"ملحوظة",accountName:"الحساب",phone:"الهاتف",kind:"النوع",category:"البند",description:"الوصف",transport:"الترحيل",stateFee:"رسوم الولاية",otherCost:"أخرى"};
 const sum=a=>{if(!a)return"";const p=Object.entries(a).filter(([k,v])=>L[k]&&v!==""&&typeof v!=="object").map(([k,v])=>`${L[k]}: ${v}`);
  if(Array.isArray(a.lines))p.push(`عدد الحمولات: ${a.lines.length}`);return p.join(" | ")};

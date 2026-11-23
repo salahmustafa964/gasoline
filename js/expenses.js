@@ -1,6 +1,6 @@
-import {openForm,fe} from "./dlg.js?v=16";
+import {openForm,fe} from "./dlg.js?v=18";
 import {collection,doc,writeBatch,serverTimestamp,getDocs,query,orderBy,limit,where} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import {n,f,esc,localToday} from "./util.js?v=16";
+import {n,f,esc,localToday} from "./util.js?v=18";
 const CATS=["إيجار","رواتب وأجور","وقود وتنقلات","صيانة","اتصالات وإنترنت","رسوم حكومية","أخرى"];
 export async function render(view,{db,user,period}){
  const isAdmin=user.role==="admin",t=localToday(),P=period.id;

@@ -1,5 +1,5 @@
 import {collection,getDocs,query,where,limit} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import {n,f,esc} from "./util.js?v=16";
+import {n,f,esc} from "./util.js?v=18";
 const TYPE={purchase:"وارد (شراء)",sale:"مبيع",adjustment:"تسوية"};
 export async function render(view,{db,period}){
  view.innerHTML=`<div class="panel"><h2>رصيد المخزون</h2><p class="soon">الفترة: <b>${esc(period.name)}</b>. تبدأ كل فترة برصيد صفر، والرصيد = الوارد − المباع ± التسويات.</p><div id="sum"></div></div>

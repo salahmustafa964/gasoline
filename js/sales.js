@@ -1,7 +1,7 @@
-import {openForm,fe} from "./dlg.js?v=16";
-import {editSale} from "./edits.js?v=16";
+import {openForm,fe} from "./dlg.js?v=18";
+import {editSale} from "./edits.js?v=18";
 import {collection,doc,runTransaction,serverTimestamp,query,orderBy,limit,getDocs,where} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import {n,f,esc,localToday} from "./util.js?v=16";
+import {n,f,esc,localToday} from "./util.js?v=18";
 export async function render(view,{db,user,period}){
  const canWrite=user.role!=="rep",isAdmin=user.role==="admin",P=period?period.id:"",closed=!!(period&&period.closed);
  view.innerHTML=(canWrite?`
@@ -24,7 +24,7 @@ export async function render(view,{db,user,period}){
   return {el,entity:q(el,"en").value.trim(),L,P,paid,amount:L*P,accId:a.value,accName:a.value?a.selectedOptions[0].text:"",method:q(el,"pm").value,note:q(el,"nt").value.trim()}});
  const upd=()=>{if(!canWrite)return;let tot=0,pd=0;
   read().forEach(l=>{tot+=l.amount;pd+=l.paid;q(l.el,"lv").textContent=`القيمة ${f(l.amount,2)} | المتبقي ${f(l.amount-l.paid,2)}`});
-  $("pv").innerHTML=`إجمالي الفاتورة: ${f(tot,2)} | المسدّد: ${f(pd,2)} | المتبقي: ${f(tot-pd,2)}<br>رصيد المندوب بعد الفاتورة: ${f(bal+tot-pd,2)}`};
+  $("pv").innerHTML=`إجمالي الفاتورة: ${f(tot,2)} | المسدّد: ${f(pd,2)} | المتبقي: ${f(tot-pd,2)}<br>رصيد المندوب في هذه الفترة بعد الفاتورة: ${f(bal+tot-pd,2)}`};
  const addLine=()=>{const d=document.createElement("div");d.className="line form-grid";
   d.innerHTML=`<div><label>الجهة</label><input class="en"></div>
   <div><label>اللترات</label><input class="li" type="number" step="any" min="0"></div>
@@ -37,7 +37,7 @@ export async function render(view,{db,user,period}){
   d.addEventListener("input",upd);q(d,"rm").onclick=()=>{if(view.querySelectorAll(".line").length>1){d.remove();upd()}};
   $("lines").appendChild(d);upd()};
  async function repBal(){if(!$("rep").value){bal=0;upd();return}
-  const s=await getDocs(query(collection(db,"ledger"),where("repId","==",$("rep").value)));
+  const s=await getDocs(query(collection(db,"ledger"),where("repId","==",$("rep").value),where("periodId","==",P)));
   bal=0;s.forEach(d=>bal+=n(d.data().amount));upd()}
  async function load(pre){
   if(pRA)(await pRA)[0].forEach(d=>repMap[d.id]=d.data().name);

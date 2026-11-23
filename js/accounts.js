@@ -1,6 +1,6 @@
-import {openForm,fe} from "./dlg.js?v=16";
+import {openForm,fe} from "./dlg.js?v=18";
 import {collection,doc,writeBatch,serverTimestamp,getDocs,query,limit} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import {n,f,esc} from "./util.js?v=16";
+import {n,f,esc} from "./util.js?v=18";
 export async function render(view,{db,user}){
  const isAdmin=user.role==="admin";
  view.innerHTML=`<div class="panel"><h2>حساب استلام جديد</h2><p class="soon">الحسابات التي تُسدَّد فيها المبالغ: خزينة، حساب بنكي، حساب شخص...</p>

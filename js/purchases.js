@@ -1,5 +1,5 @@
-import {openForm,fe} from "./dlg.js?v=16";
-import {editPurchase} from "./edits.js?v=16";
+import {openForm,fe} from "./dlg.js?v=18";
+import {editPurchase} from "./edits.js?v=18";
 import {collection,doc,writeBatch,serverTimestamp,query,orderBy,limit,getDocs,where} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 const n=v=>Number(v)||0;
 const f=(v,d=0)=>n(v).toLocaleString("en-US",{maximumFractionDigits:d});
