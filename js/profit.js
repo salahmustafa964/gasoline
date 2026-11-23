@@ -1,5 +1,5 @@
 import {collection,getDocs,query,where,limit} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import {n} from "./util.js?v=19";
+import {n} from "./util.js?v=20";
 export async function loadAll(db,P){
  const names=["sales","purchases","settlements","saleAllocations","ledger","expenses"];
  const r=await Promise.all(names.map(c=>getDocs(query(collection(db,c),where("periodId","==",P),limit(5000)))));

@@ -1,6 +1,6 @@
 import {collection,doc,writeBatch,serverTimestamp,getDocs,query,where,limit} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import {n,f,esc} from "./util.js?v=19";
-import {openForm,fe} from "./dlg.js?v=19";
+import {n,f,esc} from "./util.js?v=20";
+import {openForm,fe} from "./dlg.js?v=20";
 export async function render(view,{db,user,period}){
  const isAdmin=user.role==="admin";
  view.innerHTML=`<div class="page-head"><h2>الفترات</h2></div>
@@ -8,7 +8,7 @@ export async function render(view,{db,user,period}){
  <div class="err" id="er" role="alert"></div><div class="ok" id="ok"></div>
  <div class="panel"><div class="tbl-wrap" id="list">جارٍ التحميل...</div></div>`;
  const $=id=>view.querySelector("#"+id);
- const aud=(b,action,id,after,before)=>b.set(doc(collection(db,"auditLog")),{userId:user.uid,userName:user.name,action,collection:"periods",docId:id,after,...(before?{before}:{}),createdAt:serverTimestamp()});
+ const aud=(b,action,id,after,before)=>b.set(doc(collection(db,"auditLog")),{userId:user.uid,userName:user.name,periodId:id,action,collection:"periods",docId:id,after,...(before?{before}:{}),createdAt:serverTimestamp()});
  async function load(){
   const [ps,ss,pu]=await Promise.all([getDocs(collection(db,"periods")),getDocs(query(collection(db,"sales"),limit(5000))),getDocs(collection(db,"purchases"))]);
   const sa={},pl={},pr={};

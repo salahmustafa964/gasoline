@@ -1,4 +1,4 @@
-import {esc} from "./util.js?v=19";
+import {esc} from "./util.js?v=20";
 const CSS=`#printroot{display:none}
 @media print{
 body>*:not(#printroot){display:none!important}

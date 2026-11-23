@@ -1,6 +1,6 @@
-import {openForm,fe} from "./dlg.js?v=19";
+import {openForm,fe} from "./dlg.js?v=20";
 import {collection,doc,writeBatch,serverTimestamp,getDocs,query,orderBy,limit,where} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import {n,f,esc,localToday} from "./util.js?v=19";
+import {n,f,esc,localToday} from "./util.js?v=20";
 const CATS=["إيجار","رواتب وأجور","وقود وتنقلات","صيانة","اتصالات وإنترنت","رسوم حكومية","أخرى"];
 export async function render(view,{db,user,period}){
  const isAdmin=user.role==="admin",t=localToday(),P=period.id;
@@ -34,7 +34,7 @@ export async function render(view,{db,user,period}){
   $("out").querySelectorAll("[data-v]").forEach(b=>b.onclick=()=>voidIt(b.dataset.v));
   $("out").querySelectorAll("[data-x]").forEach(b=>b.onclick=()=>editX(b.dataset.x));
  }
- const audit=(b,action,id,after)=>b.set(doc(collection(db,"auditLog")),{userId:user.uid,userName:user.name,action,collection:"expenses",docId:id,after,createdAt:serverTimestamp()});
+ const audit=(b,action,id,after)=>b.set(doc(collection(db,"auditLog")),{userId:user.uid,userName:user.name,periodId:P,action,collection:"expenses",docId:id,after,createdAt:serverTimestamp()});
  async function voidIt(id){const x=list.find(e=>e.id===id);$("er").textContent="";$("ok").textContent="";
   if(!confirm(`إلغاء مصروف «${x.category}» بمبلغ ${f(x.amount,2)}؟ يبقى ظاهرًا في السجل مشطوبًا ولا يُحسب في الأرباح.`))return;
   try{const b=writeBatch(db);b.update(doc(db,"expenses",id),{voided:true,voidedBy:user.uid,voidedAt:serverTimestamp()});
@@ -46,7 +46,7 @@ export async function render(view,{db,user,period}){
    onSubmit:async v=>{const a=n(v.amount);if(!(a>0))throw new Error("أدخل مبلغًا أكبر من صفر.");if(v.category==="أخرى"&&!v.description.trim())throw new Error("اكتب وصفًا عند اختيار «أخرى».");
     try{const b=writeBatch(db),nw={date:v.date,category:v.category,description:v.description.trim(),amount:a};
      b.update(doc(db,"expenses",id),{...nw,updatedBy:user.uid,updatedAt:serverTimestamp()});
-     b.set(doc(collection(db,"auditLog")),{userId:user.uid,userName:user.name,action:"تعديل مصروف",collection:"expenses",docId:id,before:{date:x.date,type:x.category,note:x.description,amount:x.amount},after:{date:nw.date,type:nw.category,note:nw.description,amount:a},createdAt:serverTimestamp()});
+     b.set(doc(collection(db,"auditLog")),{userId:user.uid,userName:user.name,periodId:P,action:"تعديل مصروف",collection:"expenses",docId:id,before:{date:x.date,type:x.category,note:x.description,amount:x.amount},after:{date:nw.date,type:nw.category,note:nw.description,amount:a},createdAt:serverTimestamp()});
      await b.commit()}catch(e){throw new Error(fe(e))}
     await fetchAll();draw()}})}
  $("addb").onclick=()=>{$("xe").textContent="";$("dlg").showModal();$("xa").focus()};

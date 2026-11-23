@@ -1,7 +1,7 @@
-import {openForm,fe} from "./dlg.js?v=19";
-import {editSale} from "./edits.js?v=19";
+import {openForm,fe} from "./dlg.js?v=20";
+import {editSale} from "./edits.js?v=20";
 import {collection,doc,runTransaction,serverTimestamp,query,orderBy,limit,getDocs,where} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import {n,f,esc,localToday} from "./util.js?v=19";
+import {n,f,esc,localToday} from "./util.js?v=20";
 export async function render(view,{db,user,period}){
  const canWrite=user.role!=="rep",isAdmin=user.role==="admin",P=period?period.id:"",closed=!!(period&&period.closed);
  view.innerHTML=(canWrite?`
@@ -85,7 +85,7 @@ export async function render(view,{db,user,period}){
        tx.set(doc(collection(db,"stockMovements")),{...base,type:"sale",liters:-l.L,ref:sr.id});
        tx.set(doc(collection(db,"ledger")),{...base,accountType:"rep",repId,type:"sale",amount:l.amount,ref:sr.id,entity:l.entity});
        if(l.paid>0)tx.set(doc(collection(db,"ledger")),{...base,accountType:"rep",repId,type:"payment",amount:-l.paid,repName,entity:l.entity,accountId:l.accId,accountName:l.accName,method:l.method,note:l.note,ref:sr.id})});
-      tx.set(doc(collection(db,"auditLog")),{userId:user.uid,userName:user.name,action:"إضافة فاتورة بيع",collection:"sales",docId:invoiceId,after:{repId,repName,date,lines:res},createdAt:serverTimestamp()});
+      tx.set(doc(collection(db,"auditLog")),{userId:user.uid,userName:user.name,periodId,action:"إضافة فاتورة بيع",collection:"sales",docId:invoiceId,after:{repId,repName,date,lines:res},createdAt:serverTimestamp()});
      });
      const tot=res.reduce((a,r)=>a+r.amount,0),cost=res.reduce((a,r)=>a+r.costTotal,0);
      $("ok").textContent=`تم حفظ الفاتورة (${res.length} حمولة). الربح قبل الترحيل والرسوم ${f(tot-cost,2)}.`;

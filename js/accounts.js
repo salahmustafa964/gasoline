@@ -1,6 +1,6 @@
-import {openForm,fe} from "./dlg.js?v=19";
+import {openForm,fe} from "./dlg.js?v=20";
 import {collection,doc,writeBatch,serverTimestamp,getDocs,query,limit} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import {n,f,esc} from "./util.js?v=19";
+import {n,f,esc} from "./util.js?v=20";
 export async function render(view,{db,user,period}){
  const isAdmin=user.role==="admin";
  view.innerHTML=`<div class="panel"><h2>حساب استلام جديد</h2><p class="soon">الحسابات التي تُسدَّد فيها المبالغ: خزينة، حساب بنكي، حساب شخص...</p>
@@ -27,13 +27,13 @@ export async function render(view,{db,user,period}){
    openForm({title:"تعديل حساب الاستلام",fields:[{k:"name",label:"اسم الحساب",req:1},{k:"kind",label:"النوع",type:"select",options:["نقدي","حساب بنكي","حساب شخص"].map(k=>({v:k,t:k}))}],values:{name:a.name,kind:a.kind},
     onSubmit:async v=>{const name=v.name.trim();if(!name)throw new Error("الاسم مطلوب.");
      try{const bt=writeBatch(db);bt.update(doc(db,"accounts",id),{name,kind:v.kind});
-      bt.set(doc(collection(db,"auditLog")),{userId:user.uid,userName:user.name,action:"تعديل حساب استلام",collection:"accounts",docId:id,before:{name:a.name,kind:a.kind},after:{name,kind:v.kind},createdAt:serverTimestamp()});
+      bt.set(doc(collection(db,"auditLog")),{userId:user.uid,userName:user.name,periodId:(period?period.id:""),action:"تعديل حساب استلام",collection:"accounts",docId:id,before:{name:a.name,kind:a.kind},after:{name,kind:v.kind},createdAt:serverTimestamp()});
       await bt.commit()}catch(e){throw new Error(fe(e))}
      await load()}})})}
  $("af").onsubmit=async ev=>{ev.preventDefault();$("er").textContent="";$("ok").textContent="";
   try{const id=doc(collection(db,"accounts")).id,rec={name:$("an").value.trim(),kind:$("ak").value,active:true},b=writeBatch(db);
    b.set(doc(db,"accounts",id),{...rec,createdAt:serverTimestamp()});
-   b.set(doc(collection(db,"auditLog")),{userId:user.uid,userName:user.name,action:"إضافة حساب استلام",collection:"accounts",docId:id,after:rec,createdAt:serverTimestamp()});
+   b.set(doc(collection(db,"auditLog")),{userId:user.uid,userName:user.name,periodId:(period?period.id:""),action:"إضافة حساب استلام",collection:"accounts",docId:id,after:rec,createdAt:serverTimestamp()});
    await b.commit();$("ok").textContent="تم حفظ الحساب.";$("af").reset();load()}catch(e){$("er").textContent="تعذّر الحفظ: "+e.message}};
  $("rall").onchange=load;
  load().catch(e=>{$("list").textContent="تعذّر التحميل: "+e.message});

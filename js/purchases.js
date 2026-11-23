@@ -1,5 +1,5 @@
-import {openForm,fe} from "./dlg.js?v=19";
-import {editPurchase} from "./edits.js?v=19";
+import {openForm,fe} from "./dlg.js?v=20";
+import {editPurchase} from "./edits.js?v=20";
 import {collection,doc,writeBatch,serverTimestamp,query,orderBy,limit,getDocs,where} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 const n=v=>Number(v)||0;
 const f=(v,d=0)=>n(v).toLocaleString("en-US",{maximumFractionDigits:d});
@@ -61,7 +61,7 @@ export async function render(view,{db,user,period}){
    const b=writeBatch(db);
    b.set(doc(db,"purchases",id),{...rec,createdAt:serverTimestamp()});
    b.set(doc(collection(db,"stockMovements")),{type:"purchase",liters:c.L,date,periodId:rec.periodId,ref:id,createdBy:user.uid,createdAt:serverTimestamp()});
-   b.set(doc(collection(db,"auditLog")),{userId:user.uid,userName:user.name,action:"إضافة شحنة",collection:"purchases",docId:id,after:rec,createdAt:serverTimestamp()});
+   b.set(doc(collection(db,"auditLog")),{userId:user.uid,userName:user.name,periodId:P,action:"إضافة شحنة",collection:"purchases",docId:id,after:rec,createdAt:serverTimestamp()});
    await b.commit();
    $("ok").textContent=`تم حفظ الشحنة. تكلفة اللتر ${f(c.P,2)}.`;
    $("pf").reset();$("date").value=localToday();upd();load();

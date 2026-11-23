@@ -1,7 +1,7 @@
 import {collection,doc,getDoc,getDocs,query,where,runTransaction,writeBatch,serverTimestamp,deleteField} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import {n} from "./util.js?v=19";
+import {n} from "./util.js?v=20";
 const r3=x=>Math.round(x*1000)/1000,r2=x=>Math.round(x*100)/100;
-const aud=(user,action,col,id,before,after)=>({userId:user.uid,userName:user.name,action,collection:col,docId:id,before,after,createdAt:serverTimestamp()});
+const aud=(user,action,col,id,before,after,pid="")=>({userId:user.uid,userName:user.name,periodId:pid,action,collection:col,docId:id,before,after,createdAt:serverTimestamp()});
 const byAge=(a,b)=>a.date.localeCompare(b.date)||(a.ts-b.ts);
 const q1=(db,c,k,v)=>getDocs(query(collection(db,c),where(k,"==",v)));
 
@@ -37,7 +37,7 @@ export async function editSale(db,user,saleId,v){
   const m=mv.docs.find(d=>d.data().type==="sale");
   if(m)tx.update(m.ref,{date,periodId,liters:-L});else tx.set(doc(collection(db,"stockMovements")),{date,periodId,type:"sale",liters:-L,ref:saleId,createdBy:user.uid,createdAt:serverTimestamp()});
   le.docs.forEach(d=>{const x=d.data();if(x.type==="sale")tx.update(d.ref,{date,periodId,amount,entity});else if((x.entity||"")!==entity)tx.update(d.ref,{entity})});
-  tx.set(doc(collection(db,"auditLog")),aud(user,"تعديل بيع","sales",saleId,{date:old.date,entity:old.entity,liters:old.liters,pricePerLiter:old.pricePerLiter,amount:old.amount,repName:old.repName},{date,entity,liters:L,pricePerLiter:P,amount,repName:old.repName}));
+  tx.set(doc(collection(db,"auditLog")),aud(user,"تعديل بيع","sales",saleId,{date:old.date,entity:old.entity,liters:old.liters,pricePerLiter:old.pricePerLiter,amount:old.amount,repName:old.repName},{date,entity,liters:L,pricePerLiter:P,amount,repName:old.repName},periodId));
  });
 }
 
@@ -56,7 +56,7 @@ export async function editPayment(db,user,id,v,accName){
  const nw={date,amount:-a,accountId:v.accountId||"",accountName:v.accountId?accName:"",method:v.method||"",note:(v.note||"").trim()};
  const b=writeBatch(db);
  b.update(ref,{...nw,updatedBy:user.uid,updatedAt:serverTimestamp()});
- b.set(doc(collection(db,"auditLog")),aud(user,"تعديل سداد","ledger",id,{date:old.date,amount:-n(old.amount),accountName:old.accountName||"",method:old.method||"",note:old.note||"",repName:old.repName||""},{date,amount:a,accountName:nw.accountName,method:nw.method,note:nw.note,repName:old.repName||""}));
+ b.set(doc(collection(db,"auditLog")),aud(user,"تعديل سداد","ledger",id,{date:old.date,amount:-n(old.amount),accountName:old.accountName||"",method:old.method||"",note:old.note||"",repName:old.repName||""},{date,amount:a,accountName:nw.accountName,method:nw.method,note:nw.note,repName:old.repName||""},old.periodId||""));
  await b.commit();
 }
 
@@ -85,6 +85,6 @@ export async function editPurchase(db,user,id,v){
   if(m)tx.update(m.ref,{date,liters:L});else tx.set(doc(collection(db,"stockMovements")),{date,periodId:p.periodId,type:"purchase",liters:L,ref:id,createdBy:user.uid,createdAt:serverTimestamp()});
   tx.set(doc(collection(db,"auditLog")),aud(user,"تعديل شحنة","purchases",id,
    {date:p.date,supplierName:p.supplierName,liters:p.liters,pricePerLiter:p.pricePerLiter,transport:p.transport,stateFee:p.stateFee,otherCost:p.otherCost},
-   {date,supplierName:sup,liters:L,pricePerLiter:P,transport:tr,stateFee:sf,otherCost:ot}));
+   {date,supplierName:sup,liters:L,pricePerLiter:P,transport:tr,stateFee:sf,otherCost:ot},p.periodId||""));
  });
 }

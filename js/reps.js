@@ -1,9 +1,9 @@
-import {printDoc} from "./pdf.js?v=19";
-import {APP_NAME} from "../firebase-config.js?v=19";
+import {printDoc} from "./pdf.js?v=20";
+import {APP_NAME} from "../firebase-config.js?v=20";
 import {collection,doc,writeBatch,serverTimestamp,getDocs,query,limit,where} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import {n,f,esc,localToday} from "./util.js?v=19";
-import {openForm,fe} from "./dlg.js?v=19";
-import {editSale,editPayment} from "./edits.js?v=19";
+import {n,f,esc,localToday} from "./util.js?v=20";
+import {openForm,fe} from "./dlg.js?v=20";
+import {editSale,editPayment} from "./edits.js?v=20";
 export async function render(view,{db,user,period}){
  const isAdmin=user.role==="admin";
  view.innerHTML=`
@@ -29,7 +29,7 @@ export async function render(view,{db,user,period}){
   <div class="tbl-wrap" id="list">جارٍ التحميل...</div></div>
  <div id="detail"></div>`;
  const $=id=>view.querySelector("#"+id);
- const audit=(b,action,col,id,after,before)=>b.set(doc(collection(db,"auditLog")),{userId:user.uid,userName:user.name,action,collection:col,docId:id,after,...(before?{before}:{}),createdAt:serverTimestamp()});
+ const audit=(b,action,col,id,after,before)=>b.set(doc(collection(db,"auditLog")),{userId:user.uid,userName:user.name,periodId:(after&&after.periodId)||(period?period.id:""),action,collection:col,docId:id,after,...(before?{before}:{}),createdAt:serverTimestamp()});
  const fail=e=>{$("er").textContent=fe(e)};
  const r2=x=>Math.round(x*100)/100;
  let open=[],cache={s:[],l:[]},state={reps:[],t:{},accs:[],pn:{}},sel="";

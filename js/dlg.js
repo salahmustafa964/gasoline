@@ -1,4 +1,4 @@
-import {esc} from "./util.js?v=19";
+import {esc} from "./util.js?v=20";
 export const fe=e=>{const m=(e&&e.message)||String(e);return /permission/i.test(m)?"تعذّر التنفيذ: الفترة مقفلة أو ليست لديك صلاحية.":m};
 export function openForm({title,note="",fields,values={},submit="حفظ التعديل",onSubmit}){
  const d=document.createElement("dialog");

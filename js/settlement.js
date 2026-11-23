@@ -1,5 +1,5 @@
 import {collection,doc,writeBatch,runTransaction,serverTimestamp,getDocs,query,orderBy,limit,where,deleteField} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import {n,f,esc,localToday} from "./util.js?v=19";
+import {n,f,esc,localToday} from "./util.js?v=20";
 const T={quantity:"فرق كمية",rep:"رصيد مندوب",cost:"فرق تكلفة شحنة"},ST={draft:"مسودة",approved:"معتمدة",rejected:"مرفوضة"};
 const r3=x=>Math.round(x*1000)/1000,r2=x=>Math.round(x*100)/100;
 export async function render(view,{db,user,period}){
@@ -40,7 +40,7 @@ export async function render(view,{db,user,period}){
    <div><label>فرق أخرى (±)</label><input id="d3" type="number" step="any" value="0"></div></div>`}
  $("ty").onchange=fields;fields();
  const fail=e=>{const m=e.message||"";$("er").textContent=m.startsWith("STOCK:")?`المتاح للخصم بتاريخ التسوية ${m.slice(6)} لتر فقط.`:m==="STATUS"?"هذه التسوية لم تعد مسودة.":/permission/i.test(m)?"تعذّر التنفيذ: الفترة مقفلة أو ليست لديك صلاحية.":"تعذّر التنفيذ: "+m};
- const audit=(b,action,id,after)=>b.set(doc(collection(db,"auditLog")),{userId:user.uid,userName:user.name,action,collection:"settlements",docId:id,after,createdAt:serverTimestamp()});
+ const audit=(b,action,id,after)=>b.set(doc(collection(db,"auditLog")),{userId:user.uid,userName:user.name,periodId:s.periodId,periodId:P,action,collection:"settlements",docId:id,after,createdAt:serverTimestamp()});
  $("sf").onsubmit=async ev=>{ev.preventDefault();$("er").textContent="";$("ok").textContent="";
   const type=$("ty").value,date=$("dt").value,rec={type,date,periodId:P,status:"draft",reason:$("rs").value.trim(),createdBy:user.uid};
   if(type==="quantity"){const d=qdiff(),c=$("qm").value==="count"?n($("cl").value):r3(book+d);if(Math.abs(d)<0.0005){$("er").textContent="لا يوجد فرق. أدخل كمية أو غيّر طريقة الإدخال.";return}
