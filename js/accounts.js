@@ -1,18 +1,18 @@
-import {openForm,fe} from "./dlg.js?v=18";
+import {openForm,fe} from "./dlg.js?v=19";
 import {collection,doc,writeBatch,serverTimestamp,getDocs,query,limit} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import {n,f,esc} from "./util.js?v=18";
-export async function render(view,{db,user}){
+import {n,f,esc} from "./util.js?v=19";
+export async function render(view,{db,user,period}){
  const isAdmin=user.role==="admin";
  view.innerHTML=`<div class="panel"><h2>حساب استلام جديد</h2><p class="soon">الحسابات التي تُسدَّد فيها المبالغ: خزينة، حساب بنكي، حساب شخص...</p>
  <form id="af"><div class="form-grid"><div><label>اسم الحساب (صاحب الحساب)</label><input id="an" required></div>
  <div><label>النوع</label><select id="ak"><option>نقدي</option><option>حساب بنكي</option><option>حساب شخص</option></select></div></div>
  <button class="btn" style="margin-top:1rem">حفظ الحساب</button><div class="err" id="er" role="alert"></div><div class="ok" id="ok"></div></form></div>
- <div class="panel"><h2>كشف المسدّد لكل حساب</h2><div id="list">جارٍ التحميل...</div></div>`;
+ <div class="panel"><h2>كشف المسدّد لكل حساب</h2><p class="soon">الحركة المعروضة للفترة: <b>${esc(period?period.name:"")}</b> فقط، وأسماء الحسابات مشتركة بين الفترات.</p><label class="chk"><input type="checkbox" id="rall"> عرض حركة كل الفترات</label><div id="list">جارٍ التحميل...</div></div>`;
  const $=id=>view.querySelector("#"+id);
  async function load(){
   const [as,ls,rs]=await Promise.all([getDocs(collection(db,"accounts")),getDocs(query(collection(db,"ledger"),limit(5000))),getDocs(collection(db,"reps"))]);
   const reps={};rs.forEach(d=>reps[d.id]=d.data().name);
-  const g={};ls.forEach(d=>{const x=d.data();if(x.type==="payment")(g[x.accountId||""]||(g[x.accountId||""]=[])).push(x)});
+  const g={};ls.forEach(d=>{const x=d.data();if(x.type==="payment"&&($("rall").checked||!period||x.periodId===period.id))(g[x.accountId||""]||(g[x.accountId||""]=[])).push(x)});
   const list=as.docs.map(d=>({id:d.id,name:d.data().name,kind:d.data().kind||""}));list.push({id:"",name:"بدون حساب محدد",kind:""});
   let html="",grand=0;
   for(const a of list){const rows=(g[a.id]||[]).sort((x,y)=>String(y.date).localeCompare(String(x.date)));
@@ -35,5 +35,6 @@ export async function render(view,{db,user}){
    b.set(doc(db,"accounts",id),{...rec,createdAt:serverTimestamp()});
    b.set(doc(collection(db,"auditLog")),{userId:user.uid,userName:user.name,action:"إضافة حساب استلام",collection:"accounts",docId:id,after:rec,createdAt:serverTimestamp()});
    await b.commit();$("ok").textContent="تم حفظ الحساب.";$("af").reset();load()}catch(e){$("er").textContent="تعذّر الحفظ: "+e.message}};
+ $("rall").onchange=load;
  load().catch(e=>{$("list").textContent="تعذّر التحميل: "+e.message});
 }

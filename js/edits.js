@@ -1,5 +1,5 @@
 import {collection,doc,getDoc,getDocs,query,where,runTransaction,writeBatch,serverTimestamp,deleteField} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import {n} from "./util.js?v=18";
+import {n} from "./util.js?v=19";
 const r3=x=>Math.round(x*1000)/1000,r2=x=>Math.round(x*100)/100;
 const aud=(user,action,col,id,before,after)=>({userId:user.uid,userName:user.name,action,collection:col,docId:id,before,after,createdAt:serverTimestamp()});
 const byAge=(a,b)=>a.date.localeCompare(b.date)||(a.ts-b.ts);

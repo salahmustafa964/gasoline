@@ -1,5 +1,5 @@
 import {collection,doc,writeBatch,runTransaction,serverTimestamp,getDocs,query,orderBy,limit,where,deleteField} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import {n,f,esc,localToday} from "./util.js?v=18";
+import {n,f,esc,localToday} from "./util.js?v=19";
 const T={quantity:"فرق كمية",rep:"رصيد مندوب",cost:"فرق تكلفة شحنة"},ST={draft:"مسودة",approved:"معتمدة",rejected:"مرفوضة"};
 const r3=x=>Math.round(x*1000)/1000,r2=x=>Math.round(x*100)/100;
 export async function render(view,{db,user,period}){

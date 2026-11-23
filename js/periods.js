@@ -1,6 +1,6 @@
 import {collection,doc,writeBatch,serverTimestamp,getDocs,query,where,limit} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import {n,f,esc} from "./util.js?v=18";
-import {openForm,fe} from "./dlg.js?v=18";
+import {n,f,esc} from "./util.js?v=19";
+import {openForm,fe} from "./dlg.js?v=19";
 export async function render(view,{db,user,period}){
  const isAdmin=user.role==="admin";
  view.innerHTML=`<div class="page-head"><h2>الفترات</h2></div>

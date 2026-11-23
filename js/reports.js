@@ -1,6 +1,6 @@
 import {collection,getDocs,query,where,limit} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import {n,f,esc} from "./util.js?v=18";
-import {loadAll,batchStats,periodProfit} from "./profit.js?v=18";
+import {n,f,esc} from "./util.js?v=19";
+import {loadAll,batchStats,periodProfit} from "./profit.js?v=19";
 const dates=(a="",b="")=>`<div class="panel"><div class="form-grid"><div><label>من تاريخ (اختياري)</label><input id="fr" type="date" value="${a}"></div><div><label>إلى تاريخ (اختياري)</label><input id="to" type="date" value="${b}"></div></div></div>`;
 const tbl=(h,rows,foot="")=>rows.length?`<div class="tbl-wrap"><table class="tbl"><thead><tr>${h.map(x=>`<th>${x}</th>`).join("")}</tr></thead><tbody>${rows.join("")}${foot}</tbody></table></div>`:'<p class="soon">لا توجد بيانات في هذه الفترة.</p>';
 async function repView(view,{db,user}){

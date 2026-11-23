@@ -3,9 +3,9 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>الرئيسية</title>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=18"></head>
+<link rel="stylesheet" href="style.css?v=19"></head>
 <body><div class="shell" id="shell">
-<aside class="side"><h2 id="app"></h2><nav id="nav"></nav><div class="ver">إصدار 18</div></aside>
+<aside class="side"><h2 id="app"></h2><nav id="nav"></nav><div class="ver">إصدار 19</div></aside>
 <main class="main">
  <div class="top"><div class="lead"><button class="tgl" id="tgl" type="button" aria-expanded="true" aria-label="إخفاء القائمة" title="إخفاء / إظهار القائمة"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button><div class="date" id="today"></div></div><div class="pbar" id="pbar" hidden><label for="per">الفترة</label><select id="per"></select><button class="btn sm alt" id="padd" type="button">+ فترة جديدة</button></div>
  <div><span class="who" id="who"></span> <button class="btn ghost" id="out">خروج</button></div></div>
@@ -16,8 +16,8 @@
 import {initializeApp} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import {getAuth,onAuthStateChanged,signOut} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import {getFirestore,doc,getDoc,getDocs,collection,writeBatch,serverTimestamp} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import {firebaseConfig,APP_NAME} from "./firebase-config.js?v=18";
-import {openForm} from "./js/dlg.js?v=18";
+import {firebaseConfig,APP_NAME} from "./firebase-config.js?v=19";
+import {openForm} from "./js/dlg.js?v=19";
 const app=initializeApp(firebaseConfig),auth=getAuth(app),db=getFirestore(app);
 const PAGES=[
  ["dashboard","الرئيسية",["admin","accountant"]],
@@ -46,7 +46,7 @@ onAuthStateChanged(auth,async u=>{
  const d=s.data();who.textContent=d.name+" ("+ROLE[d.role]+")";
  const allowed=PAGES.filter(p=>p[2].includes(d.role));
  const BUILT=["dashboard","purchases","reps","sales","accounts","inventory","settlement","expenses","reports","audit","periods"];
- BUILT.forEach(k=>{if(allowed.some(p=>p[0]===k))import(`./js/${k}.js?v=18`).catch(()=>{})});
+ BUILT.forEach(k=>{if(allowed.some(p=>p[0]===k))import(`./js/${k}.js?v=19`).catch(()=>{})});
 
  const isStaff=["admin","accountant"].includes(d.role),PP=["dashboard","sales","purchases","inventory","settlement","expenses","reports"];
  const E=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
@@ -78,7 +78,7 @@ onAuthStateChanged(auth,async u=>{
   if(BUILT.includes(p[0])){
    if(PP.includes(p[0])&&isStaff&&!cur){view.innerHTML='<div class="panel"><h2>لا توجد فترة</h2><p class="soon">أنشئ أول فترة من زر "+ فترة جديدة" أعلى الصفحة (للمدير)، ثم ابدأ بتسجيل الشحنة.</p></div>';return}
    const box=document.createElement("div");view.replaceChildren(box);
-   try{const m=await import(`./js/${p[0]}.js?v=18`);if(view.firstChild!==box)return;await m.render(box,{db,auth,user:{uid:u.uid,name:d.name,role:d.role,repId:d.repId||""},period:cur})}
+   try{const m=await import(`./js/${p[0]}.js?v=19`);if(view.firstChild!==box)return;await m.render(box,{db,auth,user:{uid:u.uid,name:d.name,role:d.role,repId:d.repId||""},period:cur})}
    catch(e){box.innerHTML='<div class="panel"><div class="err">تعذّر تحميل الصفحة: '+String(e.message).replace(/</g,"&lt;")+'</div></div>'}
    return}
   view.innerHTML=p[0]==="dashboard"?

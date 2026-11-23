@@ -1,7 +1,7 @@
-import {openForm,fe} from "./dlg.js?v=18";
-import {editSale} from "./edits.js?v=18";
+import {openForm,fe} from "./dlg.js?v=19";
+import {editSale} from "./edits.js?v=19";
 import {collection,doc,runTransaction,serverTimestamp,query,orderBy,limit,getDocs,where} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import {n,f,esc,localToday} from "./util.js?v=18";
+import {n,f,esc,localToday} from "./util.js?v=19";
 export async function render(view,{db,user,period}){
  const canWrite=user.role!=="rep",isAdmin=user.role==="admin",P=period?period.id:"",closed=!!(period&&period.closed);
  view.innerHTML=(canWrite?`

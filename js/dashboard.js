@@ -1,5 +1,5 @@
-import {n,f,esc,localToday} from "./util.js?v=18";
-import {loadAll,periodProfit} from "./profit.js?v=18";
+import {n,f,esc,localToday} from "./util.js?v=19";
+import {loadAll,periodProfit} from "./profit.js?v=19";
 export async function render(view,{db,period}){
  view.innerHTML='<p class="soon">جارٍ تحميل الأرقام...</p>';
  const D=await loadAll(db,period.id),today=localToday();
